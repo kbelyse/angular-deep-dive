@@ -13,6 +13,7 @@ describe('CounterButton', () => {
 
     fixture = TestBed.createComponent(CounterButton);
     fixture.componentRef.setInput('label', '+');
+    fixture.componentRef.setInput('ariaLabel', 'Increase count');
     component = fixture.componentInstance;
     fixture.detectChanges();
   });
@@ -24,6 +25,11 @@ describe('CounterButton', () => {
   it('should render the label', () => {
     const button = (fixture.nativeElement as HTMLElement).querySelector('button');
     expect(button?.textContent).toContain('+');
+  });
+
+  it('should expose an accessible name for screen readers', () => {
+    const button = (fixture.nativeElement as HTMLElement).querySelector('button');
+    expect(button?.getAttribute('aria-label')).toBe('Increase count');
   });
 
   it('should emit pressed when clicked', () => {

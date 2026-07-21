@@ -8,6 +8,7 @@ import { Component, input, output } from '@angular/core';
 })
 export class CounterButton {
   readonly label = input.required<string>();
+  readonly ariaLabel = input.required<string>();
   readonly pressed = output<void>();
 
   onClick(): void {

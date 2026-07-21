@@ -1,1 +1,1 @@
-<button type="button" (click)="onClick()">{{ label() }}</button>
+<button type="button" [attr.aria-label]="ariaLabel()" (click)="onClick()">{{ label() }}</button>
