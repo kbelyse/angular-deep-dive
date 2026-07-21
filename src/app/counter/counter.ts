@@ -1,8 +1,9 @@
 import { Component, computed, signal } from '@angular/core';
+import { CounterButton } from './counter-button/counter-button';
 
 @Component({
   selector: 'app-counter',
-  imports: [],
+  imports: [CounterButton],
   templateUrl: './counter.html',
   styleUrl: './counter.scss',
 })

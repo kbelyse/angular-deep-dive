@@ -1,7 +1,7 @@
 <div class="counter">
-  <button (click)="decrement()">-</button>
+  <app-counter-button label="-" (pressed)="decrement()" />
   <span class="count">{{ count() }}</span>
-  <button (click)="increment()">+</button>
+  <app-counter-button label="+" (pressed)="increment()" />
 </div>
 
 <p>Doubled: {{ doubled() }}</p>
