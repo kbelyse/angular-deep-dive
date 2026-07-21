@@ -138,3 +138,49 @@ export class CounterButton {
   component's rendered DOM really does nest inside the parent's tree in the
   test fixture — `ViewEncapsulation.Emulated` (the default) only scopes CSS,
   it doesn't hide or isolate the DOM structure itself.
+
+**Accessibility pass on `CounterButton` — required by the CLAUDE.md rules
+(WCAG AA, AXE-clean), and a real gap, not a theoretical one:**
+- `-` and `+` alone give a screen reader nothing to say beyond "minus" /
+  "plus" — no context for what they control. Added a second required input,
+  `ariaLabel`, kept separate from the visual `label` on purpose: there's no
+  way to derive "Decrease count" from `"-"` programmatically without baking
+  assumptions into a component meant to be reusable for any pair of actions.
+- Bound it with `[attr.aria-label]`, not a plain property binding — ARIA
+  attributes are HTML attributes, not reliably reflected DOM properties, so
+  `attr.` binding is the correct Angular idiom for anything in `aria-*`.
+- Added `aria-live="polite"` to the `.count` span in `counter.html`. Without
+  it, nothing announces that the count changed unless focus happens to be on
+  that exact element — a keyboard/screen-reader user pressing the button
+  gets no feedback that anything happened.
+- `:focus-visible` on the button in `counter-button.scss` isn't decorative —
+  it's WCAG 2.4.7 (visible focus indicator). CSS resets often strip the
+  browser's default outline, so it needs to be declared explicitly.
+
+**Styling, and what view encapsulation actually guarantees:**
+- `counter.scss` / `counter-button.scss` were empty until now — every
+  component gets its own scoped stylesheet, and a plain `button { ... }`
+  selector in `counter-button.scss` can only ever match buttons rendered
+  inside `CounterButton`'s own template. It can't leak out to restyle
+  unrelated buttons elsewhere, and no page-wide style can reach in here
+  either — that's what `ViewEncapsulation.Emulated` (the default) buys you.
+- `font-variant-numeric: tabular-nums` on `.count` stops the layout jittering
+  as the digit count changes — `9` and `10` render at different natural
+  widths in most fonts otherwise.
+
+**Added a Reset control — first real use of `set()` instead of `update()`:**
+```ts
+reset(): void {
+  this.count.set(0);
+}
+```
+This is the case `set()` is actually for: resetting to zero doesn't depend
+on the current value at all, so there's nothing to derive — `update(() => 0)`
+would work but is needless indirection when you already know the new value
+outright.
+
+**Bug this exposed:** `CounterButton`'s button had a fixed `width: 2.5rem`,
+sized for single characters like `-`/`+`. Adding a "Reset" label overflowed
+it. Fixed by switching to `min-width` + horizontal padding — a small but
+real lesson in not hardcoding assumptions from the first use case into a
+component meant to be reused for others.
