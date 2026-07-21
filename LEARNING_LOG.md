@@ -73,7 +73,7 @@ in `package-lock.json`, regardless of what's globally installed. It also
 means the same three commands (`npm start`, `npm test`, `npm run build`)
 work the same way across any Node project, not just Angular ones.
 
-## 2026-07-21 — Version upgrades
+## 2026-07-21 — Version upgrades & component communication
 
 **Upgrade one major version at a time (17 → 18 → 19 → ... → 22), never skip:**
 - `ng update @angular/core@18 @angular/cli@18`, verify, commit, repeat.
@@ -94,3 +94,47 @@ depending on it.
 
 **Tool:** [update.angular.io](https://update.angular.io) — enter current and
 target version, get the exact ordered command sequence.
+
+**Built `input()`/`output()` for real — split `Counter`'s two buttons into a
+new `CounterButton` component:**
+```ts
+// counter-button.ts
+export class CounterButton {
+  readonly label = input.required<string>();
+  readonly pressed = output<void>();
+
+  onClick(): void {
+    this.pressed.emit();
+  }
+}
+```
+```html
+<!-- counter.html -->
+<app-counter-button label="-" (pressed)="decrement()" />
+<span class="count">{{ count() }}</span>
+<app-counter-button label="+" (pressed)="increment()" />
+```
+- `CounterButton` is dumb on purpose — it doesn't know what "increment" or
+  "decrement" means, only that it was clicked. `Counter` stays the only place
+  that owns state and decides what a click means. Data flows down (`label`),
+  events flow up (`pressed`).
+- `input.required<string>()` instead of a default value: there's no sane
+  default for a button's label, so making it required means the compiler
+  rejects `<app-counter-button />` used without one, instead of silently
+  shipping an empty button.
+- `output<void>()`, no payload: the child isn't sending data, just signaling
+  "I was pressed" — the parent already knows what that means based on which
+  instance fired. Contrast with an output that *would* carry data, like a
+  search box emitting the typed string.
+- Testing an `output()` directly: `component.pressed.subscribe(spy)`, then
+  click and assert the spy fired — same idea as subscribing to any event
+  emitter, no template needed for a unit test.
+- Testing a `.required` input: must call `fixture.componentRef.setInput(...)`
+  *before* the first `detectChanges()`, or Angular throws (`NG0950`) because
+  the required input was never supplied.
+- Confirmed by running the existing `Counter` tests unchanged after the
+  refactor: they still find `<button>` elements via
+  `fixture.nativeElement.querySelectorAll('button')`, which proves a child
+  component's rendered DOM really does nest inside the parent's tree in the
+  test fixture — `ViewEncapsulation.Emulated` (the default) only scopes CSS,
+  it doesn't hide or isolate the DOM structure itself.
