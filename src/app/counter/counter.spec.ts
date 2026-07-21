@@ -43,4 +43,11 @@ describe('Counter', () => {
     clickButton(0);
     expect(countText()).toContain('-1');
   });
+
+  it('should reset to zero when the reset button is clicked', () => {
+    clickButton(1);
+    clickButton(1);
+    clickButton(2);
+    expect(countText()).toContain('0');
+  });
 });
