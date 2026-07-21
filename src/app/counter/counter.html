@@ -1,7 +1,7 @@
 <div class="counter">
-  <app-counter-button label="-" (pressed)="decrement()" />
-  <span class="count">{{ count() }}</span>
-  <app-counter-button label="+" (pressed)="increment()" />
+  <app-counter-button label="-" ariaLabel="Decrease count" (pressed)="decrement()" />
+  <span class="count" aria-live="polite">{{ count() }}</span>
+  <app-counter-button label="+" ariaLabel="Increase count" (pressed)="increment()" />
 </div>
 
 <p>Doubled: {{ doubled() }}</p>
