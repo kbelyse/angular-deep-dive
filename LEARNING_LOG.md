@@ -266,3 +266,23 @@ The router's default title strategy reads `route.title` and sets
 `TestBed.inject(Title).getTitle()` after navigating with
 `RouterTestingHarness`. No `withTitleStrategy` or manual `document.title =`
 assignment needed for the default behavior.
+
+**Self-check on today's routing work — corrected two things I had fuzzy:**
+- `routerLink` vs `href` isn't just "doesn't reload the JS file." A hard
+  navigation (`href`) tears down the **entire running app instance** —
+  every signal resets, the router's own internal state resets, the nav bar
+  itself gets destroyed and rebuilt from nothing (it only *looks* unchanged
+  because it re-renders identically). `routerLink` never tears any of that
+  down; only the outlet's content swaps. The nav "staying the same" is a
+  symptom of the whole app persisting, not a special case just for the nav.
+- The wildcard-must-be-last rule isn't about route order generally — it's
+  specifically about `**` being the *only* greedy matcher in this config.
+  `path: ''` matches only the exact root URL, `path: 'counter'` matches only
+  `/counter` — neither can accidentally swallow the other, so their relative
+  order doesn't matter. Only a pattern that matches *any* path has to be
+  positioned last.
+- The concrete, observable version of "`app.ts` doesn't know `Counter`
+  exists until it's needed": open the Network tab, load the site fresh —
+  one JS chunk. Click "Counter" — a second chunk request fires right then.
+  That's `loadComponent`'s dynamic `import()`, not just a code-organization
+  nicety; the browser genuinely hasn't downloaded that code yet.
