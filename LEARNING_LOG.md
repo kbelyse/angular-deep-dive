@@ -237,3 +237,32 @@ that renders a component using `routerLink` needs a router actually
 registered in `TestBed`, via `provideRouter(routes)` (or `provideRouter([])`
 if the test doesn't care about real navigation targets) — otherwise Angular
 throws `NG0201: No provider found for ActivatedRoute`.
+
+**`aria-current` — the active nav link was only distinguishable visually
+(a CSS class), which tells a screen reader user nothing about which page
+they're on:**
+```html
+<a
+  routerLink="/counter"
+  routerLinkActive="active"
+  #counterLink="routerLinkActive"
+  [attr.aria-current]="counterLink.isActive ? 'page' : null"
+>
+```
+`#counterLink="routerLinkActive"` is a template reference variable that
+exports the directive instance itself (its `exportAs`), exposing the live
+`.isActive` boolean it already tracks internally. Binding to `null` when
+inactive removes the attribute entirely — the correct move, since binding
+an empty string would still leave the attribute present with no value.
+`aria-current="page"` is the standard ARIA convention for marking the
+current page inside a set of navigation links.
+
+**Per-route document titles — a built-in router feature, no extra service:**
+```ts
+{ path: 'counter', title: 'Counter · Angular Deep Dive', loadComponent: ... }
+```
+The router's default title strategy reads `route.title` and sets
+`document.title` automatically on navigation — confirmed in a test via
+`TestBed.inject(Title).getTitle()` after navigating with
+`RouterTestingHarness`. No `withTitleStrategy` or manual `document.title =`
+assignment needed for the default behavior.
