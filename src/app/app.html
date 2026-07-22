@@ -1,8 +1,23 @@
 <header>
   <h1>{{ title() }}</h1>
   <nav>
-    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
-    <a routerLink="/counter" routerLinkActive="active">Counter</a>
+    <a
+      routerLink="/"
+      routerLinkActive="active"
+      [routerLinkActiveOptions]="{ exact: true }"
+      #homeLink="routerLinkActive"
+      [attr.aria-current]="homeLink.isActive ? 'page' : null"
+    >
+      Home
+    </a>
+    <a
+      routerLink="/counter"
+      routerLinkActive="active"
+      #counterLink="routerLinkActive"
+      [attr.aria-current]="counterLink.isActive ? 'page' : null"
+    >
+      Counter
+    </a>
   </nav>
 </header>
 
