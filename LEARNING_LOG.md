@@ -184,3 +184,56 @@ sized for single characters like `-`/`+`. Adding a "Reset" label overflowed
 it. Fixed by switching to `min-width` + horizontal padding — a small but
 real lesson in not hardcoding assumptions from the first use case into a
 component meant to be reused for others.
+
+## 2026-07-22 — Routing
+
+**Still one HTML page.** `index.html` never reloads. "Navigating" means
+swapping which component is mounted inside `<router-outlet>` while
+everything outside it (the header) stays exactly as it was. `app.routes.ts`
+is the map from URL path to component — it was `[]` until today, which is
+why the outlet rendered nothing.
+
+**`routerLink` vs `href`:** a plain `<a href="/counter">` throws away the
+whole running app and asks the server for a fresh document. `routerLink`
+intercepts the click, updates the URL via the History API, and swaps the
+outlet's content client-side — no reload, no lost state.
+
+**`loadComponent` instead of the old `loadChildren` + module pattern.**
+Lazy-loading a route under NgModules meant lazy-loading a whole module:
+`loadChildren: () => import('./home/home.module').then(m => m.HomeModule)`.
+Now a route lazy-loads a single component directly — one less layer.
+Confirmed structurally: `app.ts` no longer imports `Counter` at all. `App`
+doesn't know `Counter` exists until someone actually navigates to `/counter`
+and the router resolves it.
+
+**Built `Home` + moved `Counter` behind `/counter`, added a nav bar:**
+```ts
+// app.routes.ts
+export const routes: Routes = [
+  { path: '', loadComponent: () => import('./home/home').then((m) => m.Home) },
+  { path: 'counter', loadComponent: () => import('./counter/counter').then((m) => m.Counter) },
+  { path: '**', loadComponent: () => import('./not-found/not-found').then((m) => m.NotFound) },
+];
+```
+- `**` (wildcard) matches literally any path, so it has to be **last** — the
+  router matches top-to-bottom and stops at the first hit. If it came first
+  it would swallow `/` and `/counter` too, and neither would ever render.
+- `[routerLinkActiveOptions]="{ exact: true }"` on the Home link only —
+  `routerLinkActive` defaults to a prefix match, so the link to `/` would
+  stay marked active even while on `/counter` (every path "starts with" the
+  root) unless told to require an exact match. The Counter link doesn't need
+  this since nothing else starts with `/counter`.
+
+**Testing routing behavior, not just component existence:** used
+`RouterTestingHarness` from `@angular/router/testing` to actually navigate
+to a URL in a test and assert on what rendered — `RouterTestingHarness.create('/counter')`
+then check the DOM, which proves the *lazy-loaded* route resolves to the
+right component, not just that the component works in isolation. Also wrote
+a test that navigates to an unknown path and confirms `NotFound` renders,
+which is really a test that the route ordering is correct.
+
+**Fixing tests broken by adding `RouterLink`/`RouterOutlet` usage:** any test
+that renders a component using `routerLink` needs a router actually
+registered in `TestBed`, via `provideRouter(routes)` (or `provideRouter([])`
+if the test doesn't care about real navigation targets) — otherwise Angular
+throws `NG0201: No provider found for ActivatedRoute`.
