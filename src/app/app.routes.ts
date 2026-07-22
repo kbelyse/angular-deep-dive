@@ -9,4 +9,8 @@ export const routes: Routes = [
     path: 'counter',
     loadComponent: () => import('./counter/counter').then((m) => m.Counter),
   },
+  {
+    path: '**',
+    loadComponent: () => import('./not-found/not-found').then((m) => m.NotFound),
+  },
 ];

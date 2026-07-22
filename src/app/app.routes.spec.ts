@@ -21,4 +21,10 @@ describe('app routes', () => {
     const compiled = harness.routeNativeElement as HTMLElement;
     expect(compiled.querySelector('.counter')).toBeTruthy();
   });
+
+  it('should render NotFound for an unknown path', async () => {
+    const harness = await RouterTestingHarness.create('/does-not-exist');
+    const compiled = harness.routeNativeElement as HTMLElement;
+    expect(compiled.querySelector('h2')?.textContent).toContain('not found');
+  });
 });
