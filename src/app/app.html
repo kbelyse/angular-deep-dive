@@ -1,9 +1,11 @@
 <header>
   <h1>{{ title() }}</h1>
+  <nav>
+    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
+    <a routerLink="/counter" routerLinkActive="active">Counter</a>
+  </nav>
 </header>
 
 <main>
-  <app-counter />
+  <router-outlet />
 </main>
-
-<router-outlet />
