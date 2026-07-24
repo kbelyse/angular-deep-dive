@@ -1,11 +1,12 @@
 # Angular Learning Log
 
-Personal notes as I go, mostly so I can look back and explain *why* something
+Personal notes as I go, mostly so I can look back and explain _why_ something
 is built the way it is, not just what it does.
 
 ## 2026-07-20 — Project setup, boot process, first component
 
 **How the app actually boots:**
+
 1. Browser loads `src/index.html`. Only meaningful line: `<app-root></app-root>`,
    an empty tag with no behavior yet.
 2. `src/main.ts` runs: `bootstrapApplication(App, appConfig)`.
@@ -21,6 +22,7 @@ So the component tree is rooted at `App`, and everything else nests inside it.
 thing Angular itself renders.
 
 **Project structure, what each piece is for:**
+
 - `angular.json` — the build recipe (entry file, style language, asset paths).
 - `tsconfig.json` / `tsconfig.app.json` / `tsconfig.spec.json` — TS compiler
   rules; app and test code use separate configs because tests need Vitest's
@@ -32,7 +34,8 @@ thing Angular itself renders.
   nothing. Routing is a later topic.
 
 **Signals, not plain fields, for state:**
-- `OnPush` change detection is the *default* now (unset = OnPush). Under
+
+- `OnPush` change detection is the _default_ now (unset = OnPush). Under
   OnPush, a component only re-renders when an `@Input()` changes by
   reference, a signal it reads changes, or an event fires inside it.
 - A plain mutated class field can look like it works only because a click
@@ -59,6 +62,7 @@ parent/child line) share state — through a common injected service, since
 there's no implicit global mutable state.
 
 **Component communication (not used yet, but the mechanism):**
+
 - Parent → child: `input()` — parent sets `<app-counter [start]="5" />`,
   child declares `start = input(0)`.
 - Child → parent: `output()` — child does `this.changed.emit(value)`, parent
@@ -68,7 +72,7 @@ there's no implicit global mutable state.
 **Why `npm start` instead of `ng serve` directly:** the global `ng` on this
 machine is actually an unrelated tool (`ng-common`/ngspice) — a naming
 collision, not Angular CLI. `npm start` (and `npx ng`) resolve to this
-project's *local* `node_modules/.bin/ng`, matching the exact version pinned
+project's _local_ `node_modules/.bin/ng`, matching the exact version pinned
 in `package-lock.json`, regardless of what's globally installed. It also
 means the same three commands (`npm start`, `npm test`, `npm run build`)
 work the same way across any Node project, not just Angular ones.
@@ -76,6 +80,7 @@ work the same way across any Node project, not just Angular ones.
 ## 2026-07-21 — Version upgrades & component communication
 
 **Upgrade one major version at a time (17 → 18 → 19 → ... → 22), never skip:**
+
 - `ng update @angular/core@18 @angular/cli@18`, verify, commit, repeat.
 - Each version's `ng update` schematics (automated codemods) assume you're
   migrating from the immediately previous version. Skipping a hop means
@@ -97,6 +102,7 @@ target version, get the exact ordered command sequence.
 
 **Built `input()`/`output()` for real — split `Counter`'s two buttons into a
 new `CounterButton` component:**
+
 ```ts
 // counter-button.ts
 export class CounterButton {
@@ -108,12 +114,14 @@ export class CounterButton {
   }
 }
 ```
+
 ```html
 <!-- counter.html -->
 <app-counter-button label="-" (pressed)="decrement()" />
 <span class="count">{{ count() }}</span>
 <app-counter-button label="+" (pressed)="increment()" />
 ```
+
 - `CounterButton` is dumb on purpose — it doesn't know what "increment" or
   "decrement" means, only that it was clicked. `Counter` stays the only place
   that owns state and decides what a click means. Data flows down (`label`),
@@ -124,13 +132,13 @@ export class CounterButton {
   shipping an empty button.
 - `output<void>()`, no payload: the child isn't sending data, just signaling
   "I was pressed" — the parent already knows what that means based on which
-  instance fired. Contrast with an output that *would* carry data, like a
+  instance fired. Contrast with an output that _would_ carry data, like a
   search box emitting the typed string.
 - Testing an `output()` directly: `component.pressed.subscribe(spy)`, then
   click and assert the spy fired — same idea as subscribing to any event
   emitter, no template needed for a unit test.
 - Testing a `.required` input: must call `fixture.componentRef.setInput(...)`
-  *before* the first `detectChanges()`, or Angular throws (`NG0950`) because
+  _before_ the first `detectChanges()`, or Angular throws (`NG0950`) because
   the required input was never supplied.
 - Confirmed by running the existing `Counter` tests unchanged after the
   refactor: they still find `<button>` elements via
@@ -141,6 +149,7 @@ export class CounterButton {
 
 **Accessibility pass on `CounterButton` — required by the CLAUDE.md rules
 (WCAG AA, AXE-clean), and a real gap, not a theoretical one:**
+
 - `-` and `+` alone give a screen reader nothing to say beyond "minus" /
   "plus" — no context for what they control. Added a second required input,
   `ariaLabel`, kept separate from the visual `label` on purpose: there's no
@@ -158,6 +167,7 @@ export class CounterButton {
   browser's default outline, so it needs to be declared explicitly.
 
 **Styling, and what view encapsulation actually guarantees:**
+
 - `counter.scss` / `counter-button.scss` were empty until now — every
   component gets its own scoped stylesheet, and a plain `button { ... }`
   selector in `counter-button.scss` can only ever match buttons rendered
@@ -169,11 +179,13 @@ export class CounterButton {
   widths in most fonts otherwise.
 
 **Added a Reset control — first real use of `set()` instead of `update()`:**
+
 ```ts
 reset(): void {
   this.count.set(0);
 }
 ```
+
 This is the case `set()` is actually for: resetting to zero doesn't depend
 on the current value at all, so there's nothing to derive — `update(() => 0)`
 would work but is needless indirection when you already know the new value
@@ -207,6 +219,7 @@ doesn't know `Counter` exists until someone actually navigates to `/counter`
 and the router resolves it.
 
 **Built `Home` + moved `Counter` behind `/counter`, added a nav bar:**
+
 ```ts
 // app.routes.ts
 export const routes: Routes = [
@@ -215,6 +228,7 @@ export const routes: Routes = [
   { path: '**', loadComponent: () => import('./not-found/not-found').then((m) => m.NotFound) },
 ];
 ```
+
 - `**` (wildcard) matches literally any path, so it has to be **last** — the
   router matches top-to-bottom and stops at the first hit. If it came first
   it would swallow `/` and `/counter` too, and neither would ever render.
@@ -227,7 +241,7 @@ export const routes: Routes = [
 **Testing routing behavior, not just component existence:** used
 `RouterTestingHarness` from `@angular/router/testing` to actually navigate
 to a URL in a test and assert on what rendered — `RouterTestingHarness.create('/counter')`
-then check the DOM, which proves the *lazy-loaded* route resolves to the
+then check the DOM, which proves the _lazy-loaded_ route resolves to the
 right component, not just that the component works in isolation. Also wrote
 a test that navigates to an unknown path and confirms `NotFound` renders,
 which is really a test that the route ordering is correct.
@@ -241,14 +255,16 @@ throws `NG0201: No provider found for ActivatedRoute`.
 **`aria-current` — the active nav link was only distinguishable visually
 (a CSS class), which tells a screen reader user nothing about which page
 they're on:**
+
 ```html
 <a
   routerLink="/counter"
   routerLinkActive="active"
   #counterLink="routerLinkActive"
   [attr.aria-current]="counterLink.isActive ? 'page' : null"
->
+></a>
 ```
+
 `#counterLink="routerLinkActive"` is a template reference variable that
 exports the directive instance itself (its `exportAs`), exposing the live
 `.isActive` boolean it already tracks internally. Binding to `null` when
@@ -258,9 +274,11 @@ an empty string would still leave the attribute present with no value.
 current page inside a set of navigation links.
 
 **Per-route document titles — a built-in router feature, no extra service:**
+
 ```ts
 { path: 'counter', title: 'Counter · Angular Deep Dive', loadComponent: ... }
 ```
+
 The router's default title strategy reads `route.title` and sets
 `document.title` automatically on navigation — confirmed in a test via
 `TestBed.inject(Title).getTitle()` after navigating with
@@ -268,18 +286,19 @@ The router's default title strategy reads `route.title` and sets
 assignment needed for the default behavior.
 
 **Self-check on today's routing work — corrected two things I had fuzzy:**
+
 - `routerLink` vs `href` isn't just "doesn't reload the JS file." A hard
   navigation (`href`) tears down the **entire running app instance** —
   every signal resets, the router's own internal state resets, the nav bar
-  itself gets destroyed and rebuilt from nothing (it only *looks* unchanged
+  itself gets destroyed and rebuilt from nothing (it only _looks_ unchanged
   because it re-renders identically). `routerLink` never tears any of that
   down; only the outlet's content swaps. The nav "staying the same" is a
   symptom of the whole app persisting, not a special case just for the nav.
 - The wildcard-must-be-last rule isn't about route order generally — it's
-  specifically about `**` being the *only* greedy matcher in this config.
+  specifically about `**` being the _only_ greedy matcher in this config.
   `path: ''` matches only the exact root URL, `path: 'counter'` matches only
   `/counter` — neither can accidentally swallow the other, so their relative
-  order doesn't matter. Only a pattern that matches *any* path has to be
+  order doesn't matter. Only a pattern that matches _any_ path has to be
   positioned last.
 - The concrete, observable version of "`app.ts` doesn't know `Counter`
   exists until it's needed": open the Network tab, load the site fresh —
@@ -296,6 +315,7 @@ reactive forms — CLAUDE.md calls this out as the preferred approach for new
 forms, so this was the natural next thing to try after routing.
 
 **The core shape — one signal, one `form()` call, no `FormGroup`:**
+
 ```ts
 private readonly model = signal<FeedbackFormValue>({ ...initialValue });
 
@@ -307,6 +327,7 @@ protected readonly feedbackForm = form(this.model, (path) => {
   minLength(path.message, 10, { message: 'Say a bit more — at least 10 characters.' });
 });
 ```
+
 No `FormBuilder`, no `FormControl`/`FormGroup` tree to keep in sync with a
 model by hand — `form()` wraps the model signal directly and the second
 argument is a schema function describing validation against a `path` object
@@ -322,9 +343,11 @@ completely different things.
 
 **`[formField]` replaces the whole `ControlValueAccessor` dance for plain
 `<input>`/`<textarea>`:**
+
 ```html
 <input id="name" type="text" [formField]="feedbackForm.name" />
 ```
+
 No `formControlName`, no `ReactiveFormsModule` import, no manual
 `(input)`/`(blur)` wiring — the directive reads the native element type and
 binds value + touched + disabled automatically. Confirmed this really is
@@ -344,11 +367,13 @@ gets added later.
 
 **Errors carry their own message, gated on `touched()` so nothing red shows
 before the user has interacted with a field:**
+
 ```html
 @if (feedbackForm.name().touched() && feedbackForm.name().invalid()) {
-  <p id="name-error" class="error" role="alert">{{ feedbackForm.name().errors()[0].message }}</p>
+<p id="name-error" class="error" role="alert">{{ feedbackForm.name().errors()[0].message }}</p>
 }
 ```
+
 `{ message: '...' }` on `required()`/`email()`/`minLength()` sets
 `.message` on the resulting `ValidationError` directly — no separate
 error-code-to-copy mapping needed. Paired with `[attr.aria-invalid]` and
@@ -359,6 +384,7 @@ explicitly associated, which plain visual proximity doesn't provide.
 
 **`[formRoot]` + `submission.action` is the built-in way to wire up submit,
 same "prefer the framework feature" lesson as the router's title strategy:**
+
 ```ts
 form(this.model, schemaFn, {
   submission: {
@@ -369,19 +395,21 @@ form(this.model, schemaFn, {
   },
 });
 ```
+
 ```html
-<form class="feedback-form" [formRoot]="feedbackForm">
+<form class="feedback-form" [formRoot]="feedbackForm"></form>
 ```
+
 `formRoot` listens for the native `submit` event, calls `preventDefault()`,
 and runs `submission.action` only if the form is actually valid — otherwise
 a manual `(submit)="onSubmit($event)"` handler would be redoing logic the
 framework already has.
 
 **`reset(value?)` does two things in one call — resets `touched`/`dirty`
-*and* sets the value if you pass one.** Learned this from reading the type
+_and_ sets the value if you pass one.** Learned this from reading the type
 signature, not the first thing I reached for: my first instinct was
 `this.model.set(initialValue)` to clear the form after a successful submit,
-but that only resets the *value* — `touched` stays `true`, so a blanked
+but that only resets the _value_ — `touched` stays `true`, so a blanked
 required field would immediately show its error again, right after a
 successful submission. `feedbackForm().reset(initialValue)` clears both at
 once, which is the actual "start over" behavior a user submitting the form
@@ -389,11 +417,13 @@ would expect.
 
 **Testing without any Angular-specific form test harness — plain DOM
 events, because `[formField]` binds to native elements:**
+
 ```ts
 el.value = value;
 el.dispatchEvent(new Event('input'));
 el.dispatchEvent(new Event('blur'));
 ```
+
 `input` updates the value, `blur` marks the field touched — both ordinary
 DOM events, no `ReactiveFormsModule` test utilities or `TestBed` form
 helpers needed. The one thing that did need care: `[formRoot]`'s submit
