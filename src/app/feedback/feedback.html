@@ -1,2 +1,21 @@
 <h2>Feedback</h2>
 <p>Tell us what you think. This form is built with Signal Forms.</p>
+
+<form class="feedback-form">
+  <div class="field">
+    <label for="name">Name</label>
+    <input id="name" type="text" [formField]="feedbackForm.name" />
+  </div>
+
+  <div class="field">
+    <label for="email">Email</label>
+    <input id="email" type="email" [formField]="feedbackForm.email" />
+  </div>
+
+  <div class="field">
+    <label for="message">Message</label>
+    <textarea id="message" rows="4" [formField]="feedbackForm.message"></textarea>
+  </div>
+
+  <button type="submit">Send feedback</button>
+</form>
