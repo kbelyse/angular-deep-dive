@@ -18,6 +18,14 @@
     >
       Counter
     </a>
+    <a
+      routerLink="/feedback"
+      routerLinkActive="active"
+      #feedbackLink="routerLinkActive"
+      [attr.aria-current]="feedbackLink.isActive ? 'page' : null"
+    >
+      Feedback
+    </a>
   </nav>
 </header>
 
