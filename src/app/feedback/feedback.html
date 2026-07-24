@@ -4,17 +4,52 @@
 <form class="feedback-form">
   <div class="field">
     <label for="name">Name</label>
-    <input id="name" type="text" [formField]="feedbackForm.name" />
+    <input
+      id="name"
+      type="text"
+      [formField]="feedbackForm.name"
+      [attr.aria-invalid]="feedbackForm.name().touched() && feedbackForm.name().invalid() ? true : null"
+      [attr.aria-describedby]="
+        feedbackForm.name().touched() && feedbackForm.name().invalid() ? 'name-error' : null
+      "
+    />
+    @if (feedbackForm.name().touched() && feedbackForm.name().invalid()) {
+      <p id="name-error" class="error" role="alert">{{ feedbackForm.name().errors()[0].message }}</p>
+    }
   </div>
 
   <div class="field">
     <label for="email">Email</label>
-    <input id="email" type="email" [formField]="feedbackForm.email" />
+    <input
+      id="email"
+      type="email"
+      [formField]="feedbackForm.email"
+      [attr.aria-invalid]="feedbackForm.email().touched() && feedbackForm.email().invalid() ? true : null"
+      [attr.aria-describedby]="
+        feedbackForm.email().touched() && feedbackForm.email().invalid() ? 'email-error' : null
+      "
+    />
+    @if (feedbackForm.email().touched() && feedbackForm.email().invalid()) {
+      <p id="email-error" class="error" role="alert">{{ feedbackForm.email().errors()[0].message }}</p>
+    }
   </div>
 
   <div class="field">
     <label for="message">Message</label>
-    <textarea id="message" rows="4" [formField]="feedbackForm.message"></textarea>
+    <textarea
+      id="message"
+      rows="4"
+      [formField]="feedbackForm.message"
+      [attr.aria-invalid]="feedbackForm.message().touched() && feedbackForm.message().invalid() ? true : null"
+      [attr.aria-describedby]="
+        feedbackForm.message().touched() && feedbackForm.message().invalid() ? 'message-error' : null
+      "
+    ></textarea>
+    @if (feedbackForm.message().touched() && feedbackForm.message().invalid()) {
+      <p id="message-error" class="error" role="alert">
+        {{ feedbackForm.message().errors()[0].message }}
+      </p>
+    }
   </div>
 
   <button type="submit">Send feedback</button>
