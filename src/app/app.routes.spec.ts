@@ -23,6 +23,12 @@ describe('app routes', () => {
     expect(compiled.querySelector('.counter')).toBeTruthy();
   });
 
+  it('should render Feedback at /feedback', async () => {
+    const harness = await RouterTestingHarness.create('/feedback');
+    const compiled = harness.routeNativeElement as HTMLElement;
+    expect(compiled.querySelector('h2')?.textContent).toContain('Feedback');
+  });
+
   it('should render NotFound for an unknown path', async () => {
     const harness = await RouterTestingHarness.create('/does-not-exist');
     const compiled = harness.routeNativeElement as HTMLElement;
