@@ -52,5 +52,7 @@
     }
   </div>
 
-  <button type="submit">Send feedback</button>
+  <button type="submit" [disabled]="feedbackForm().invalid() || feedbackForm().submitting()">
+    Send feedback
+  </button>
 </form>
