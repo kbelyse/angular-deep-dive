@@ -286,3 +286,118 @@ assignment needed for the default behavior.
   one JS chunk. Click "Counter" — a second chunk request fires right then.
   That's `loadComponent`'s dynamic `import()`, not just a code-organization
   nicety; the browser genuinely hasn't downloaded that code yet.
+
+## 2026-07-24 — Signal Forms
+
+**Built a `/feedback` page: name/email/message, validated, accessible,
+submits and resets.** First real form in the app, and the first time using
+`@angular/forms/signals` (stable since v22) instead of template-driven or
+reactive forms — CLAUDE.md calls this out as the preferred approach for new
+forms, so this was the natural next thing to try after routing.
+
+**The core shape — one signal, one `form()` call, no `FormGroup`:**
+```ts
+private readonly model = signal<FeedbackFormValue>({ ...initialValue });
+
+protected readonly feedbackForm = form(this.model, (path) => {
+  required(path.name, { message: 'Enter your name.' });
+  required(path.email, { message: 'Enter your email address.' });
+  email(path.email, { message: 'Enter a valid email address.' });
+  required(path.message, { message: 'Enter a message.' });
+  minLength(path.message, 10, { message: 'Say a bit more — at least 10 characters.' });
+});
+```
+No `FormBuilder`, no `FormControl`/`FormGroup` tree to keep in sync with a
+model by hand — `form()` wraps the model signal directly and the second
+argument is a schema function describing validation against a `path` object
+that mirrors the model's shape (`path.name`, `path.email`, ...).
+
+**`feedbackForm.name` is a `FieldTree`, not a value — it's callable to get
+state:** `feedbackForm.name` is what you bind to the DOM (`[formField]`).
+Calling it, `feedbackForm.name()`, returns a `FieldState` snapshot with
+`.value()`, `.touched()`, `.valid()`, `.errors()`, etc. Easy to trip on this
+in a template: `feedbackForm.name` (the tree, for binding) vs
+`feedbackForm.name()` (the state, for reading) look almost identical but do
+completely different things.
+
+**`[formField]` replaces the whole `ControlValueAccessor` dance for plain
+`<input>`/`<textarea>`:**
+```html
+<input id="name" type="text" [formField]="feedbackForm.name" />
+```
+No `formControlName`, no `ReactiveFormsModule` import, no manual
+`(input)`/`(blur)` wiring — the directive reads the native element type and
+binds value + touched + disabled automatically. Confirmed this really is
+live, two-way, native-event-driven by testing through the DOM: dispatching a
+plain `input` `Event` on the native element (no Angular test harness needed)
+updates `feedbackForm.name().value()`.
+
+**`valid()` is not `!invalid()`** — the one non-obvious API detail: `valid()`
+is false while a validator is still pending even with zero errors so far;
+`invalid()` only reflects actual errors, ignoring pending state. They only
+agree once nothing is pending. Didn't hit this directly (no async validators
+here — `email`/`required`/`minLength` are all synchronous) but the
+disabled-submit binding (`feedbackForm().invalid() || feedbackForm().submitting()`)
+is deliberately built from `invalid()`, not `!valid()`, so it'll keep working
+correctly once an async validator (e.g. checking an email against a server)
+gets added later.
+
+**Errors carry their own message, gated on `touched()` so nothing red shows
+before the user has interacted with a field:**
+```html
+@if (feedbackForm.name().touched() && feedbackForm.name().invalid()) {
+  <p id="name-error" class="error" role="alert">{{ feedbackForm.name().errors()[0].message }}</p>
+}
+```
+`{ message: '...' }` on `required()`/`email()`/`minLength()` sets
+`.message` on the resulting `ValidationError` directly — no separate
+error-code-to-copy mapping needed. Paired with `[attr.aria-invalid]` and
+`[attr.aria-describedby]` pointing at the error's `id`, same reasoning as
+`CounterButton`'s `ariaLabel` from 07-21: a sighted user sees the red text
+near the field, a screen-reader user needs the field and its error
+explicitly associated, which plain visual proximity doesn't provide.
+
+**`[formRoot]` + `submission.action` is the built-in way to wire up submit,
+same "prefer the framework feature" lesson as the router's title strategy:**
+```ts
+form(this.model, schemaFn, {
+  submission: {
+    action: async () => {
+      this.submitted.set(true);
+      this.feedbackForm().reset(initialValue);
+    },
+  },
+});
+```
+```html
+<form class="feedback-form" [formRoot]="feedbackForm">
+```
+`formRoot` listens for the native `submit` event, calls `preventDefault()`,
+and runs `submission.action` only if the form is actually valid — otherwise
+a manual `(submit)="onSubmit($event)"` handler would be redoing logic the
+framework already has.
+
+**`reset(value?)` does two things in one call — resets `touched`/`dirty`
+*and* sets the value if you pass one.** Learned this from reading the type
+signature, not the first thing I reached for: my first instinct was
+`this.model.set(initialValue)` to clear the form after a successful submit,
+but that only resets the *value* — `touched` stays `true`, so a blanked
+required field would immediately show its error again, right after a
+successful submission. `feedbackForm().reset(initialValue)` clears both at
+once, which is the actual "start over" behavior a user submitting the form
+would expect.
+
+**Testing without any Angular-specific form test harness — plain DOM
+events, because `[formField]` binds to native elements:**
+```ts
+el.value = value;
+el.dispatchEvent(new Event('input'));
+el.dispatchEvent(new Event('blur'));
+```
+`input` updates the value, `blur` marks the field touched — both ordinary
+DOM events, no `ReactiveFormsModule` test utilities or `TestBed` form
+helpers needed. The one thing that did need care: `[formRoot]`'s submit
+handler calls `submit()` without awaiting it, so the success message and
+reset don't happen synchronously after dispatching the `submit` event —
+the test has to `await fixture.whenStable()` before asserting, or it
+checks state from before the submission's async action actually ran.
