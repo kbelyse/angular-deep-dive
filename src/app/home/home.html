@@ -1,2 +1,9 @@
 <h2>Home</h2>
 <p>This is the landing page. Head to Counter to see signals in action.</p>
+
+<h3>Favorited pages</h3>
+<ul class="favorites-list">
+  @for (path of favorites.all(); track path) {
+    <li><a [routerLink]="path">{{ path }}</a></li>
+  }
+</ul>
