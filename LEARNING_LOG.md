@@ -431,3 +431,119 @@ handler calls `submit()` without awaiting it, so the success message and
 reset don't happen synchronously after dispatching the `submit` event —
 the test has to `await fixture.whenStable()` before asserting, or it
 checks state from before the submission's async action actually ran.
+
+## 2026-07-27 — Services and dependency injection, for real this time
+
+**Finally built the thing the 07-20 log entry only described:** "unrelated
+components share state through a common injected service, since there's no
+implicit global mutable state." Added a `Favorites` service — a page can be
+starred from a toggle button in the header (`App`), and the starred list
+shows up on `Home`. `App` and `Home` are not parent/child in any direct
+sense relevant here beyond both sitting under the router outlet; neither
+knows the other exists. They only agree on state because both `inject()`
+the same singleton.
+
+**The service itself — plain signal state behind a small API, no module:**
+
+```ts
+@Injectable({ providedIn: 'root' })
+export class Favorites {
+  private readonly paths = signal<ReadonlySet<string>>(new Set());
+  readonly all = computed(() => Array.from(this.paths()));
+
+  isFavorite(path: string): boolean {
+    return this.paths().has(path);
+  }
+
+  toggle(path: string): void {
+    this.paths.update((current) => {
+      const next = new Set(current);
+      next.has(path) ? next.delete(path) : next.add(path);
+      return next;
+    });
+  }
+}
+```
+
+`providedIn: 'root'` registers it with the application's root injector the
+first time anything asks for it — no `providers: [Favorites]` array to
+remember to add anywhere, and exactly one instance exists for the whole app
+(confirmed by two separately-created component fixtures in the same test
+sharing state, see below).
+
+**CLAUDE.md says prefer `@Service` over `@Injectable({ providedIn: 'root' })`
+for new services — checked, and it doesn't exist yet in this project's
+installed version:**
+
+```
+grep -rn "class Service\b\|declare function Service" node_modules/@angular/core/**/*
+# no matches — @angular/core is 22.0.7
+```
+
+Used `@Injectable` instead, same as CLAUDE.md's own fallback wording
+implies for anything pre-`@Service`. Worth re-checking after a future
+`ng update` — this is a "the rule doesn't apply _yet_" situation, not a
+decision to ignore it, same category as the wildcard-route rule from
+07-22: something that's genuinely conditional, not universal, and worth
+verifying against the real installed code rather than assuming.
+
+**`isFavorite()` is a plain method, not a `computed()`, and still reacts
+correctly — because the _template binding_ is the reactive context, not
+the method:**
+
+```html
+[attr.aria-pressed]="isCurrentPageFavorite()"
+```
+
+`isCurrentPageFavorite()` calls `this.favorites.isFavorite(this.currentPath())`,
+which reads `this.paths()` synchronously inside that call chain. Angular
+tracks every signal read that happens during a binding's evaluation,
+regardless of how many plain function calls it passes through on the way —
+memoizing with `computed()` is about avoiding _recomputation_ cost, not a
+requirement for reactivity itself. Only reached for `computed()` on `all()`
+because building an array from the model is real work worth caching if
+`all()` were read from multiple places (it's read from both `Home`'s `@for`
+and its `.length > 0` check, so it already is).
+
+**Turned the router into a signal instead of using the async pipe —
+`toSignal` from `@angular/core/rxjs-interop`:**
+
+```ts
+protected readonly currentPath = toSignal(
+  this.router.events.pipe(
+    filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+    map((event) => event.urlAfterRedirects),
+  ),
+  { initialValue: this.router.url },
+);
+```
+
+CLAUDE.md's guidance to prefer the async pipe is about _templates_ consuming
+observables directly. Here the value needed to be readable from
+`toggleFavorite()`, a plain method, not just a template expression — a
+signal can be read anywhere (`.()`), an observable can't without
+subscribing. `toSignal` is the bridge for exactly this case: an RxJS-only
+source (router events) that a signal-based rest of the component needs to
+read synchronously. `initialValue: this.router.url` matters — without it
+the signal starts as `undefined` until the first `NavigationEnd` fires,
+and the app's _current_ location genuinely is known immediately via
+`router.url`, so there's no reason to wait for an event to get it.
+
+**`aria-pressed`, not a CSS class alone, for the toggle button — same
+reasoning as `aria-current` from 07-22:** a filled vs. outline star (★/☆)
+is a purely visual signal. `[attr.aria-pressed]="isCurrentPageFavorite()"`
+tells assistive tech this is a two-state toggle, not a plain action button,
+and its current state — the ARIA "pressed button" pattern, distinct from
+`aria-current` (which marks _location_, not a toggleable state). Paired
+`aria-label` swaps between "Add"/"Remove" so the announced action always
+matches what a click will actually do next, not a static label describing
+the icon.
+
+**The clearest proof yet that DI is a flat, app-wide registry:** in
+`app.spec.ts`, `TestBed.inject(Favorites)` returns the _same_ instance the
+`App` fixture's toggle button mutates — no wiring between the test and the
+component beyond both going through `TestBed`. Same again in `home.spec.ts`,
+a completely separate spec file, separate fixture, same singleton. This is
+the concrete version of "a flat registry available to anything via
+`inject()`" from 07-20 — not two services that happen to have identical
+data, literally one object being read and written from unrelated places.
