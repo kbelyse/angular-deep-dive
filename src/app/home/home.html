@@ -2,8 +2,14 @@
 <p>This is the landing page. Head to Counter to see signals in action.</p>
 
 <h3>Favorited pages</h3>
-<ul class="favorites-list">
-  @for (path of favorites.all(); track path) {
-    <li><a [routerLink]="path">{{ path }}</a></li>
-  }
-</ul>
+@if (favorites.all().length > 0) {
+  <ul class="favorites-list">
+    @for (path of favorites.all(); track path) {
+      <li><a [routerLink]="path">{{ path }}</a></li>
+    }
+  </ul>
+} @else {
+  <p class="empty">
+    Nothing favorited yet — use the star button in the header on any page.
+  </p>
+}
