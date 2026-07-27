@@ -31,7 +31,9 @@
     type="button"
     class="favorite-toggle"
     [attr.aria-pressed]="isCurrentPageFavorite()"
-    [attr.aria-label]="isCurrentPageFavorite() ? 'Remove this page from favorites' : 'Add this page to favorites'"
+    [attr.aria-label]="
+      isCurrentPageFavorite() ? 'Remove this page from favorites' : 'Add this page to favorites'
+    "
     (click)="toggleFavorite()"
   >
     {{ isCurrentPageFavorite() ? '★' : '☆' }}

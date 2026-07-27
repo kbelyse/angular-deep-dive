@@ -5,11 +5,11 @@
 @if (favorites.all().length > 0) {
   <ul class="favorites-list">
     @for (path of favorites.all(); track path) {
-      <li><a [routerLink]="path">{{ path }}</a></li>
+      <li>
+        <a [routerLink]="path">{{ path }}</a>
+      </li>
     }
   </ul>
 } @else {
-  <p class="empty">
-    Nothing favorited yet — use the star button in the header on any page.
-  </p>
+  <p class="empty">Nothing favorited yet — use the star button in the header on any page.</p>
 }
