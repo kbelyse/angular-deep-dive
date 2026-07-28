@@ -10,3 +10,11 @@ h2 {
   color: #666;
   font-style: italic;
 }
+
+.defer-placeholder,
+.defer-loading {
+  padding: 1rem;
+  border: 1px dashed #ccc;
+  border-radius: 0.375rem;
+  color: #666;
+}
