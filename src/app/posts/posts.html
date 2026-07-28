@@ -1,2 +1,11 @@
 <h2>Posts</h2>
 <p>Fetched live from a public API using <code>httpResource</code>.</p>
+
+<ul class="posts-list">
+  @for (post of postsResource.value(); track post.id) {
+    <li>
+      <h3>{{ post.title }}</h3>
+      <p>{{ post.body }}</p>
+    </li>
+  }
+</ul>
