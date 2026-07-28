@@ -547,3 +547,154 @@ a completely separate spec file, separate fixture, same singleton. This is
 the concrete version of "a flat registry available to anything via
 `inject()`" from 07-20 — not two services that happen to have identical
 data, literally one object being read and written from unrelated places.
+
+## 2026-07-28 — Fetching real data with `httpResource`
+
+**Built a `/posts` page that fetches from a real public API
+(JSONPlaceholder) using `httpResource`** — the signal-based replacement for
+"inject `HttpClient`, subscribe, remember to unsubscribe" that this app
+hadn't needed until now. First time anything in the app talks to the
+network.
+
+**`provideHttpClient()` has to be added explicitly — it's not implied by
+anything else:**
+
+```ts
+providers: [
+  provideBrowserGlobalErrorListeners(),
+  provideZoneChangeDetection({ eventCoalescing: true }),
+  provideRouter(routes),
+  provideHttpClient(),
+];
+```
+
+Same "nothing is implicit" theme as the router and Signal Forms — every
+capability the app has is a provider someone added on purpose, traceable to
+one line in `app.config.ts`.
+
+**`httpResource` only accepts a URL-returning _function_, never a plain
+string — compiler caught this immediately:**
+
+```ts
+httpResource<Post[]>(POSTS_URL, { defaultValue: [] }); // TS2769, no overload matches
+httpResource<Post[]>(() => POSTS_URL, { defaultValue: [] }); // correct
+```
+
+At first this looked like a typo-level mistake, but it isn't one — every
+overload of `httpResource` (and its `.text`/`.blob`/`.arrayBuffer` variants)
+takes `(ctx) => string | undefined`, never a bare `string`. That's
+deliberate: the whole point of the "resource" abstraction is that it
+re-fetches automatically when a signal the function reads changes. A plain
+string could never express that, so the API doesn't offer the shortcut —
+there's no "static" overload to fall back to, even for a URL that happens
+not to depend on anything else right now.
+
+**Validated the response instead of trusting `httpResource<Post[]>` to mean
+what it says:** the generic parameter is a type-level promise, not a
+runtime check — nothing stops the API from returning something that isn't
+actually a `Post[]`. Same "avoid `any`, use `unknown` when uncertain" rule
+from CLAUDE.md as the Signal Forms validators, applied to network data
+instead of form input:
+
+```ts
+function isPost(value: unknown): value is Post {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate['id'] === 'number' &&
+    typeof candidate['title'] === 'string' &&
+    typeof candidate['body'] === 'string'
+  );
+}
+
+httpResource<Post[]>(() => POSTS_URL, {
+  defaultValue: [],
+  parse: (value) => {
+    if (!Array.isArray(value) || !value.every(isPost)) {
+      throw new Error('Received an unexpected posts response.');
+    }
+    return value;
+  },
+});
+```
+
+`parse` receives the raw JSON as `unknown`, not `Post[]` — the resource
+can't know the shape is right, so the type system doesn't let it pretend to.
+Throwing inside `parse` on a bad shape puts the resource into its `error`
+state, same as an actual network failure would, so the rest of the
+component doesn't need to know or care whether "failed" means "the server
+was down" or "the server lied about what it sent."
+
+**Nearly shipped a real bug: `resource.value()` throws in the error
+state, even with a `defaultValue` set.** Read this in the actual
+implementation, not the docs, after noticing the doc comment ("or throws an
+error if the resource is in an error state") didn't say whether a
+`defaultValue` changes that:
+
+```ts
+// _resource-chunk.mjs, roughly:
+if (!streamValue) return defaultValue; // idle / before first response
+if (status === 'loading' && error()) return defaultValue; // retrying after a failure
+if (!isResolved(streamValue)) throw new ResourceValueError(error()); // settled in error
+return streamValue.value;
+```
+
+`defaultValue` only covers "haven't got a response yet." Once a request
+settles into an error, `.value()` throws — so a `@for` loop reading
+`postsResource.value()` unconditionally would crash the whole template the
+first time the API failed. Fixed by branching on `postsResource.status()`
+and never evaluating `.value()` on the `'error'` branch:
+
+```html
+@if (postsResource.status() === 'error') {
+<p class="error" role="alert">
+  Couldn't load posts: {{ postsResource.error()?.message }}
+  <button type="button" (click)="retry()">Retry</button>
+</p>
+} @else {
+<ul class="posts-list">
+  @for (post of postsResource.value(); track post.id) { ... }
+</ul>
+}
+```
+
+`retry()` is just `this.postsResource.reload()` — the resource remembers
+its own request, `reload()` just re-runs it.
+
+**Loading state via `aria-busy` + `aria-live`, error via `role="alert"` —
+different ARIA patterns for different reasons.** The loading text sits in a
+permanent `aria-live="polite"` region so a screen reader announces it
+appearing _and_ disappearing without needing focus to be anywhere near it —
+same reasoning as the count announcer from 07-21. The error message uses
+`role="alert"`, which is implicitly assertive (interrupts immediately)
+rather than polite — appropriate here because a failed request is something
+the user needs to know about right away, not just eventually.
+
+**Testing: `HttpTestingController` instead of hitting the real API,** so
+tests are deterministic and don't depend on network access or
+JSONPlaceholder staying up:
+
+```ts
+providers: [provideHttpClient(), provideHttpClientTesting()];
+// ...
+httpMock.expectOne(POSTS_URL).flush([{ id: 1, title: 'Signals', body: '...' }]);
+```
+
+`expectOne` fails the test immediately if the component made zero or more
+than one request to that URL — a stronger assertion than just checking the
+rendered result, since it also catches "fetched twice by accident" bugs.
+`afterEach(() => httpMock.verify())` fails the test if any request went
+unflushed, which is what caught my first draft of these tests: the
+`beforeEach`'s `fixture.detectChanges()` fires the initial request whether
+or not a given test cares about it, so _every_ test needs to flush it, even
+ones only checking the heading renders.
+
+**Same "state update happens via an effect, not synchronously" lesson as
+the Signal Forms submit test from 07-24, and it generalizes:** after
+`req.flush(...)`, `fixture.detectChanges()` alone doesn't show the new
+value — needs `await fixture.whenStable()` first. This isn't specific to
+forms; anything backed by a `resource()` updates its signals from an
+internal effect, which runs on Angular's own schedule, not inline with
+whatever triggered it. The pattern to reach for going forward, anywhere a
+signal is fed by something async: flush/resolve the async source, then
+`await fixture.whenStable()`, _then_ `detectChanges()` and assert.
