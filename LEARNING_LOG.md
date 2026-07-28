@@ -767,3 +767,70 @@ don't bubble) to prove focus and hover are tracked independently — covered
 by a fifth test that hovers and focuses at once, then removes only the
 hover, and checks the row is still highlighted because focus is still
 active.
+
+**Still 07-28: `@defer`, a second, different kind of lazy loading from the
+one already used everywhere in this app.** Route-level `loadComponent`
+(used since 07-22) defers a whole _page_ until you navigate to it. `@defer`
+defers a piece _within_ an already-rendered page — added a `RecentPosts`
+preview widget to `Home` that doesn't download or render until scrolled
+into view:
+
+```html
+@defer (on viewport) {
+<app-recent-posts />
+} @placeholder {
+<p class="defer-placeholder">Recent posts will appear when you scroll here.</p>
+} @loading (minimum 200ms) {
+<p class="defer-loading">Loading recent posts…</p>
+} @error {
+<p class="error" role="alert">Couldn't load the recent posts widget.</p>
+}
+```
+
+Confirmed this is a real, separate JS chunk the same way the 07-22 log
+confirmed route-level splitting — the production build lists `recent-posts`
+as its own lazy chunk, distinct from `home`. `Home` downloads without it;
+the browser only fetches `RecentPosts`'s code once the placeholder actually
+scrolls into the viewport.
+
+**`@error` here is not the same thing as the `postsResource.status() ===
+'error'` branch built into `Posts` and `RecentPosts` earlier today — easy
+to conflate, so worth being precise about:** `@defer`'s `@error` block only
+fires if the deferred _component's JavaScript chunk itself_ fails to
+download (a real but rare failure — flaky network mid-navigation, a broken
+deploy). It has nothing to do with `RecentPosts`'s own `httpResource` call
+failing; that's already handled entirely inside `RecentPosts`'s own
+template, exactly like `Posts` handles it, and would show up as "Couldn't
+load recent posts right now" _inside_ the successfully-loaded widget, not
+as the outer `@defer` `@error` block. Two independent failure modes, two
+independent places they're handled, deliberately not conflated into one.
+
+**Extracted `Post`/`parsePosts` out of `Posts` into `src/app/post.ts`
+before writing `RecentPosts`, instead of copy-pasting the validation
+logic:** the first time this app had two real consumers of the same
+network shape. Copying it would mean two places that could quietly drift
+out of sync about what a valid post looks like — the same reasoning as not
+duplicating the `Favorites` service, just for a pure function/type instead
+of a stateful singleton.
+
+**Testing a `@defer` block needs `DeferBlockBehavior.Manual`, set at the
+`TestBed` level, not inside `providers`:**
+
+```ts
+await TestBed.configureTestingModule({
+  imports: [Home],
+  providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+  deferBlockBehavior: DeferBlockBehavior.Manual,
+}).compileComponents();
+```
+
+First attempt put `{ deferBlockBehavior: DeferBlockBehavior.Manual }`
+inside the `providers` array, which compiled fine but silently did nothing
+useful — `providers` expects DI provider entries, not arbitrary config;
+`deferBlockBehavior` is a sibling of `imports`/`providers`, part of
+`TestModuleMetadata` itself. Once fixed, `fixture.getDeferBlocks()` returns
+the deferred blocks in the template, and `deferBlock.render(DeferBlockState.X)`
+drives one straight to `Placeholder` (the default), `Loading`, `Complete`,
+or `Error` on command — without `Manual` mode, Angular tries to use the
+_real_ trigger (an actual `IntersectionObserver` for `on viewport`), which
+jsdom doesn't meaningfully support in a test.
