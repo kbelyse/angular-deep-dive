@@ -698,3 +698,72 @@ internal effect, which runs on Angular's own schedule, not inline with
 whatever triggered it. The pattern to reach for going forward, anywhere a
 signal is fed by something async: flush/resolve the async source, then
 `await fixture.whenStable()`, _then_ `detectChanges()` and assert.
+
+**Later the same day: host bindings via the `host` object, not
+`@HostBinding`/`@HostListener` — a CLAUDE.md rule the app hadn't actually
+exercised yet.** Built `RowHighlight`, a small attribute directive applied
+to each post row, and used it to close that gap for real instead of just
+not-violating it by accident:
+
+```ts
+@Directive({
+  selector: '[appRowHighlight]',
+  host: {
+    '[class.highlighted]': 'highlighted()',
+    '(focusin)': 'focused.set(true)',
+    '(focusout)': 'focused.set(false)',
+    '(mouseenter)': 'hovered.set(true)',
+    '(mouseleave)': 'hovered.set(false)',
+  },
+})
+export class RowHighlight {
+  protected readonly focused = signal(false);
+  protected readonly hovered = signal(false);
+  protected readonly highlighted = computed(() => this.focused() || this.hovered());
+}
+```
+
+Everything about how this directive touches its host element — the class it
+toggles, the events it listens for — is declared in one place in the
+decorator, not scattered across `@HostBinding`/`@HostListener`-decorated
+class members. Reads like a small manifest of "this is everything this
+directive does to its host," which is the actual point of the rule, not
+just a stylistic preference.
+
+**`focus`/`blur` don't bubble; `focusin`/`focusout` do — this is why the
+directive listens for the latter.** The directive sits on the `<li>`, but
+the focusable thing is the post content inside it (made focusable with
+`tabindex="0"` on the `<li>` itself, since post text isn't naturally
+interactive). A listener for plain `focus` on the host would only fire if
+the host element itself were the thing focused, never for a descendant.
+`focusin`/`focusout` are the DOM's own answer to "delegate focus tracking
+to an ancestor," exactly like `click` vs. needing delegation for
+dynamically-added children — not an Angular-specific detail.
+
+**Made the `<li>` itself focusable (`tabindex="0"`) rather than inventing a
+focusable wrapper:** this also happens to be a real accessibility fix, not
+just a peg to hang the directive on — before this, a keyboard user tabbing
+through the page had no way to land on an individual post at all, since
+none of its content (a heading, a paragraph) is naturally focusable.
+
+**Testing a directive needs a host component — it can't be instantiated on
+its own,** since a directive only does anything when applied to an element
+in a template:
+
+```ts
+@Component({
+  imports: [RowHighlight],
+  template: `<div appRowHighlight><button type="button">focus me</button></div>`,
+})
+class TestHost {}
+```
+
+First time this app has needed that pattern — every previous `.spec.ts`
+tested a component directly via `TestBed.createComponent`. Dispatched
+`focusin`/`focusout` with `{ bubbles: true }` on the inner `<button>` (not
+the host `<div>`) to prove the delegation actually works, and separately
+`mouseenter`/`mouseleave` directly on the host `<div>` (correct, since those
+don't bubble) to prove focus and hover are tracked independently — covered
+by a fifth test that hovers and focuses at once, then removes only the
+hover, and checks the row is still highlighted because focus is still
+active.
