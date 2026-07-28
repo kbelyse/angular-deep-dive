@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { httpResource } from '@angular/common/http';
+import { RowHighlight } from '../row-highlight';
 
 interface Post {
   id: number;
@@ -30,7 +31,7 @@ function parsePosts(value: unknown): Post[] {
 
 @Component({
   selector: 'app-posts',
-  imports: [],
+  imports: [RowHighlight],
   templateUrl: './posts.html',
   styleUrl: './posts.scss',
 })
