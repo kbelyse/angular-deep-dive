@@ -39,4 +39,8 @@ export class Posts {
     defaultValue: [],
     parse: parsePosts,
   });
+
+  protected retry(): void {
+    this.postsResource.reload();
+  }
 }
