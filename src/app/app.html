@@ -26,6 +26,14 @@
     >
       Feedback
     </a>
+    <a
+      routerLink="/posts"
+      routerLinkActive="active"
+      #postsLink="routerLinkActive"
+      [attr.aria-current]="postsLink.isActive ? 'page' : null"
+    >
+      Posts
+    </a>
   </nav>
   <button
     type="button"
