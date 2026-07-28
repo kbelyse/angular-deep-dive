@@ -17,6 +17,11 @@ export const routes: Routes = [
     loadComponent: () => import('./feedback/feedback').then((m) => m.Feedback),
   },
   {
+    path: 'posts',
+    title: 'Posts · Angular Deep Dive',
+    loadComponent: () => import('./posts/posts').then((m) => m.Posts),
+  },
+  {
     path: '**',
     title: 'Page not found · Angular Deep Dive',
     loadComponent: () => import('./not-found/not-found').then((m) => m.NotFound),
