@@ -13,3 +13,13 @@
 } @else {
   <p class="empty">Nothing favorited yet — use the star button in the header on any page.</p>
 }
+
+@defer (on viewport) {
+  <app-recent-posts />
+} @placeholder {
+  <p class="defer-placeholder">Recent posts will appear when you scroll here.</p>
+} @loading (minimum 200ms) {
+  <p class="defer-loading">Loading recent posts…</p>
+} @error {
+  <p class="error" role="alert">Couldn't load the recent posts widget.</p>
+}
