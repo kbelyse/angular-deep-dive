@@ -30,9 +30,7 @@ describe('RecentPosts', () => {
   }
 
   it('should render the fetched post titles', async () => {
-    httpMock
-      .expectOne(RECENT_POSTS_URL)
-      .flush([{ id: 1, title: 'Deferred loading', body: '...' }]);
+    httpMock.expectOne(RECENT_POSTS_URL).flush([{ id: 1, title: 'Deferred loading', body: '...' }]);
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -48,8 +46,6 @@ describe('RecentPosts', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(nativeEl().querySelector('.error')?.textContent).toContain(
-      "Couldn't load recent posts",
-    );
+    expect(nativeEl().querySelector('.error')?.textContent).toContain("Couldn't load recent posts");
   });
 });
