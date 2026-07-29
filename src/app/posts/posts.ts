@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { httpResource } from '@angular/common/http';
+import { RouterLink } from '@angular/router';
 import { RowHighlight } from '../row-highlight';
 import { Post, parsePosts } from '../post';
 
@@ -7,7 +8,7 @@ const POSTS_URL = 'https://jsonplaceholder.typicode.com/posts?_limit=10';
 
 @Component({
   selector: 'app-posts',
-  imports: [RowHighlight],
+  imports: [RowHighlight, RouterLink],
   templateUrl: './posts.html',
   styleUrl: './posts.scss',
 })

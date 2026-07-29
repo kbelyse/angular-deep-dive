@@ -15,8 +15,8 @@
 } @else {
   <ul class="posts-list">
     @for (post of postsResource.value(); track post.id) {
-      <li appRowHighlight tabindex="0">
-        <h3>{{ post.title }}</h3>
+      <li appRowHighlight>
+        <h3><a [routerLink]="['/posts', post.id]">{{ post.title }}</a></h3>
         <p>{{ post.body }}</p>
       </li>
     }
