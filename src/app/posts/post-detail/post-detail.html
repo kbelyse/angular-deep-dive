@@ -11,4 +11,9 @@
     Couldn't load this post: {{ postResource.error()?.message }}
     <button type="button" (click)="retry()">Retry</button>
   </p>
+} @else if (postResource.hasValue()) {
+  <article>
+    <h3>{{ postResource.value().title }}</h3>
+    <p>{{ postResource.value().body }}</p>
+  </article>
 }
