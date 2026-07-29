@@ -61,9 +61,7 @@ describe('Posts', () => {
   });
 
   it('should link each post to its detail page', async () => {
-    httpMock
-      .expectOne(POSTS_URL)
-      .flush([{ id: 7, title: 'Deep link', body: 'Goes to /posts/7.' }]);
+    httpMock.expectOne(POSTS_URL).flush([{ id: 7, title: 'Deep link', body: 'Goes to /posts/7.' }]);
     await fixture.whenStable();
     fixture.detectChanges();
 

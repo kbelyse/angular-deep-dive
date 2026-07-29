@@ -16,7 +16,9 @@
   <ul class="posts-list">
     @for (post of postsResource.value(); track post.id) {
       <li appRowHighlight>
-        <h3><a [routerLink]="['/posts', post.id]">{{ post.title }}</a></h3>
+        <h3>
+          <a [routerLink]="['/posts', post.id]">{{ post.title }}</a>
+        </h3>
         <p>{{ post.body }}</p>
       </li>
     }

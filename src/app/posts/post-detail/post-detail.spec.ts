@@ -50,9 +50,7 @@ describe('PostDetail', () => {
     fixture.detectChanges();
 
     expect(nativeEl().querySelector('article h3')?.textContent).toContain('Reactive resources');
-    expect(nativeEl().querySelector('article p')?.textContent).toContain(
-      'They refetch on demand.',
-    );
+    expect(nativeEl().querySelector('article p')?.textContent).toContain('They refetch on demand.');
   });
 
   it('should reject a malformed response instead of rendering it', async () => {
@@ -100,9 +98,7 @@ describe('PostDetail', () => {
   });
 
   it('should refetch when the id input changes', async () => {
-    httpMock
-      .expectOne(`${POSTS_URL}/1`)
-      .flush({ id: 1, title: 'First post', body: 'First body.' });
+    httpMock.expectOne(`${POSTS_URL}/1`).flush({ id: 1, title: 'First post', body: 'First body.' });
     await fixture.whenStable();
     fixture.detectChanges();
 
