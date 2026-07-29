@@ -1,1 +1,14 @@
 <h2>Post</h2>
+
+<p class="status" aria-live="polite" [attr.aria-busy]="postResource.isLoading()">
+  @if (postResource.isLoading()) {
+    Loading post…
+  }
+</p>
+
+@if (postResource.status() === 'error') {
+  <p class="error" role="alert">
+    Couldn't load this post: {{ postResource.error()?.message }}
+    <button type="button" (click)="retry()">Retry</button>
+  </p>
+}

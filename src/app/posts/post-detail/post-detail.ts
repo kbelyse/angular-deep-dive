@@ -16,4 +16,8 @@ export class PostDetail {
   protected readonly postResource = httpResource<Post>(() => `${POSTS_URL}/${this.id()}`, {
     parse: parsePost,
   });
+
+  protected retry(): void {
+    this.postResource.reload();
+  }
 }
