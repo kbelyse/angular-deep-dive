@@ -22,6 +22,11 @@ export const routes: Routes = [
     loadComponent: () => import('./posts/posts').then((m) => m.Posts),
   },
   {
+    path: 'posts/:id',
+    title: 'Post · Angular Deep Dive',
+    loadComponent: () => import('./posts/post-detail/post-detail').then((m) => m.PostDetail),
+  },
+  {
     path: '**',
     title: 'Page not found · Angular Deep Dive',
     loadComponent: () => import('./not-found/not-found').then((m) => m.NotFound),
