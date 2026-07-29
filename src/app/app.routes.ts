@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { postIdGuard } from './posts/post-detail/post-id.guard';
 
 export const routes: Routes = [
   {
@@ -24,6 +25,7 @@ export const routes: Routes = [
   {
     path: 'posts/:id',
     title: 'Post · Angular Deep Dive',
+    canActivate: [postIdGuard],
     loadComponent: () => import('./posts/post-detail/post-detail').then((m) => m.PostDetail),
   },
   {
