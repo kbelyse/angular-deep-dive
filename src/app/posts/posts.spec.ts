@@ -60,6 +60,17 @@ describe('Posts', () => {
     expect(nativeEl().querySelector('.status')?.textContent?.trim()).toBe('');
   });
 
+  it('should link each post to its detail page', async () => {
+    httpMock
+      .expectOne(POSTS_URL)
+      .flush([{ id: 7, title: 'Deep link', body: 'Goes to /posts/7.' }]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const link = nativeEl().querySelector('.posts-list li a') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/posts/7');
+  });
+
   it('should reject a malformed response instead of rendering it', async () => {
     httpMock.expectOne(POSTS_URL).flush([{ id: 1, title: 'Missing a body' }]);
     await fixture.whenStable();
