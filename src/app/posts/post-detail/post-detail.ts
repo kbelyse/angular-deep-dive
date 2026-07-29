@@ -1,5 +1,6 @@
-import { Component, input } from '@angular/core';
+import { Component, effect, inject, input } from '@angular/core';
 import { httpResource } from '@angular/common/http';
+import { Title } from '@angular/platform-browser';
 import { Post, parsePost } from '../../post';
 
 const POSTS_URL = 'https://jsonplaceholder.typicode.com/posts';
@@ -11,11 +12,21 @@ const POSTS_URL = 'https://jsonplaceholder.typicode.com/posts';
   styleUrl: './post-detail.scss',
 })
 export class PostDetail {
+  private readonly documentTitle = inject(Title);
+
   readonly id = input.required<string>();
 
   protected readonly postResource = httpResource<Post>(() => `${POSTS_URL}/${this.id()}`, {
     parse: parsePost,
   });
+
+  constructor() {
+    effect(() => {
+      if (this.postResource.hasValue()) {
+        this.documentTitle.setTitle(`${this.postResource.value().title} · Angular Deep Dive`);
+      }
+    });
+  }
 
   protected retry(): void {
     this.postResource.reload();
