@@ -13,6 +13,7 @@ describe('PostDetail', () => {
 
     fixture = TestBed.createComponent(PostDetail);
     component = fixture.componentInstance;
+    fixture.componentRef.setInput('id', '1');
     fixture.detectChanges();
   });
 

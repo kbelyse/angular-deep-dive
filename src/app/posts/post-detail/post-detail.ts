@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, input } from '@angular/core';
 
 @Component({
   selector: 'app-post-detail',
@@ -6,4 +6,6 @@ import { Component } from '@angular/core';
   templateUrl: './post-detail.html',
   styleUrl: './post-detail.scss',
 })
-export class PostDetail {}
+export class PostDetail {
+  readonly id = input.required<string>();
+}
