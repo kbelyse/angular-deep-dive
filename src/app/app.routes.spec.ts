@@ -1,14 +1,23 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { Title } from '@angular/platform-browser';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { routes } from './app.routes';
 
 describe('app routes', () => {
+  let httpMock: HttpTestingController;
+
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideRouter(routes)],
+      providers: [
+        provideRouter(routes, withComponentInputBinding()),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
     });
+    httpMock = TestBed.inject(HttpTestingController);
   });
 
   it('should render Home at the root path', async () => {
@@ -27,6 +36,29 @@ describe('app routes', () => {
     const harness = await RouterTestingHarness.create('/feedback');
     const compiled = harness.routeNativeElement as HTMLElement;
     expect(compiled.querySelector('h2')?.textContent).toContain('Feedback');
+  });
+
+  it('should render Posts at /posts', async () => {
+    const harness = await RouterTestingHarness.create('/posts');
+    httpMock.expectOne('https://jsonplaceholder.typicode.com/posts?_limit=10').flush([]);
+    const compiled = harness.routeNativeElement as HTMLElement;
+    expect(compiled.querySelector('h2')?.textContent).toContain('Posts');
+  });
+
+  it('should render PostDetail at /posts/:id', async () => {
+    const harness = await RouterTestingHarness.create('/posts/1');
+    httpMock
+      .expectOne('https://jsonplaceholder.typicode.com/posts/1')
+      .flush({ id: 1, title: 'A post', body: 'Body text.' });
+    const compiled = harness.routeNativeElement as HTMLElement;
+    expect(compiled.querySelector('h2')?.textContent).toContain('Post');
+  });
+
+  it('should redirect /posts/:id to /posts when the id is not numeric', async () => {
+    await RouterTestingHarness.create('/posts/not-a-number');
+
+    expect(TestBed.inject(Router).url).toBe('/posts');
+    httpMock.expectOne('https://jsonplaceholder.typicode.com/posts?_limit=10').flush([]);
   });
 
   it('should render NotFound for an unknown path', async () => {
