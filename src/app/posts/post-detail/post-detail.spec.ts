@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
+import { Title } from '@angular/platform-browser';
 
 import { PostDetail } from './post-detail';
 
@@ -86,6 +87,16 @@ describe('PostDetail', () => {
 
     expect(nativeEl().querySelector('.error')).toBeNull();
     expect(nativeEl().querySelector('article h3')?.textContent).toContain('Recovered');
+  });
+
+  it('should set the document title to the loaded post once it arrives', async () => {
+    httpMock
+      .expectOne(`${POSTS_URL}/1`)
+      .flush({ id: 1, title: 'Dynamic titles', body: 'Set once data arrives.' });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(TestBed.inject(Title).getTitle()).toBe('Dynamic titles · Angular Deep Dive');
   });
 
   it('should refetch when the id input changes', async () => {
