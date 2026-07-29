@@ -22,3 +22,10 @@ export function parsePosts(value: unknown): Post[] {
   }
   return value;
 }
+
+export function parsePost(value: unknown): Post {
+  if (!isPost(value)) {
+    throw new Error('Received an unexpected post response.');
+  }
+  return value;
+}
