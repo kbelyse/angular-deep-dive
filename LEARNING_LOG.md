@@ -834,3 +834,127 @@ drives one straight to `Placeholder` (the default), `Loading`, `Complete`,
 or `Error` on command — without `Manual` mode, Angular tries to use the
 _real_ trigger (an actual `IntersectionObserver` for `on viewport`), which
 jsdom doesn't meaningfully support in a test.
+
+## 2026-07-29 — Dynamic routes: `/posts/:id`, guards, and reactive resources
+
+**Built a post detail page at `/posts/:id`** — the first dynamic route
+segment in this app; every route so far (`/counter`, `/feedback`, `/posts`)
+has been a fixed string. Ties together nearly everything from the last
+week: routing, `httpResource`, services, and accessibility, in one feature.
+
+**`withComponentInputBinding()` — route params become component inputs
+directly, no `ActivatedRoute` injection or subscription:**
+
+```ts
+provideRouter(routes, withComponentInputBinding());
+```
+
+```ts
+export class PostDetail {
+  readonly id = input.required<string>();
+}
+```
+
+The router matches the input name (`id`) against the route's param name
+(`:id`) and sets it automatically on navigation — the same "nothing is
+implicit, but the wiring is one line" pattern as `provideHttpClient()` from
+07-28. The old way (`inject(ActivatedRoute).paramMap.pipe(map(...))`) still
+exists and is sometimes necessary (query params, resolvers), but for the
+common case of "this route segment is this input," this is strictly less
+code and — because it's a signal-backed input, not an Observable — it can
+be read directly inside `httpResource`'s URL function.
+
+**Confirmed `httpResource` really is reactive, not just re-run once at
+construction — the URL function re-executes when `id()` changes:**
+
+```ts
+protected readonly postResource = httpResource<Post>(() => `${POSTS_URL}/${this.id()}`, {
+  parse: parsePost,
+});
+```
+
+Proved this with a test, not just by reading the docs: change the `id`
+input via `setInput`, and a _second_ HTTP request goes out to the new URL
+without any manual `.reload()` call — `httpMock.expectOne` on the new URL
+is what actually confirms it, a plain "does the right title render" check
+wouldn't have caught a component that only fetched once at startup and
+happened to still show stale-but-plausible data.
+
+**`hasValue()` narrowing applied prospectively this time, not retroactively
+fixing a bug like 07-28:** `httpResource<Post>` with no `defaultValue` types
+`.value()` as `Post | undefined`. Wrote `@else if (postResource.hasValue())`
+before ever touching `.value()` in the template, and it compiles under full
+AOT template type-checking with `.value()` narrowed to plain `Post` inside
+that branch — confirmed by running `ng build`, not just the dev test
+runner, since template type-checking strictness differs between them.
+
+**Functional guards (`CanActivateFn`) return a `UrlTree` to redirect,
+not an imperative `router.navigate()` call:**
+
+```ts
+export const postIdGuard: CanActivateFn = (route) => {
+  const id = route.paramMap.get('id');
+  if (id !== null && /^\d+$/.test(id)) {
+    return true;
+  }
+  return inject(Router).parseUrl('/posts');
+};
+```
+
+Returning a `UrlTree` _is_ the redirect — the router treats it as "cancel
+this navigation, go here instead" as part of resolving the guard's result,
+rather than the guard returning `false` and separately triggering a second
+navigation as a side effect. One return value fully describes the outcome,
+which is also why it's trivial to test: call the guard directly, assert on
+what it returned, no `Router.navigate` spy needed.
+
+**What a guard checks vs. what a resource's error state checks — two
+different failure modes on the same route, deliberately not merged:** the
+guard rejects `/posts/abc` before any network request is made — a cheap,
+synchronous, syntactic check ("is this a plausible id at all"). A
+syntactically valid but nonexistent id, like `/posts/999999`, sails past
+the guard and only fails once `httpResource` actually asks the API and gets
+a 404 — that's `PostDetail`'s own error state, same UI as `Posts`'s error
+state. Same "two independent failure modes, two independent places" theme
+as `@defer`'s `@error` vs. a resource's `error` state from 07-28.
+
+**Set the document title twice, deliberately layered:** the route's static
+`title: 'Post · Angular Deep Dive'` (the router's built-in title strategy,
+from 07-22) shows immediately on navigation, before any data has loaded.
+Once the post arrives, an effect overwrites it with the real title:
+
+```ts
+constructor() {
+  effect(() => {
+    if (this.postResource.hasValue()) {
+      this.documentTitle.setTitle(`${this.postResource.value().title} · Angular Deep Dive`);
+    }
+  });
+}
+```
+
+Not a bug that the title briefly shows the generic fallback — that's the
+intended behavior. The alternative (leaving the title blank until data
+loads) would be worse: a real, if temporary, page title beats no title at
+all while a network request is in flight.
+
+**Two testing gotchas, both from forgetting the "actually the same"
+assumption:**
+
+- `app.routes.spec.ts`'s `provideRouter(routes)` needed the exact same
+  `withComponentInputBinding()` passed to it as `app.config.ts`'s real
+  `provideRouter` call — forgetting it there meant `id` was never bound,
+  `httpResource`'s URL function silently never produced a real URL, and no
+  request ever fired. The fix was obvious once suspected, but the failure
+  itself (`expectOne` finding nothing) gave no hint that the _router
+  config_, not the component, was the problem — worth remembering that
+  route-param-dependent tests need the router wired identically to
+  production, not just "a" router.
+- Tried `await harness.fixture.whenStable()` **before** `httpMock.expectOne(...).flush(...)`,
+  copying the "flush, then `whenStable`" pattern from 07-28 but in the
+  wrong order — this hangs forever (5000ms Vitest timeout), because
+  `whenStable()` waits for pending zone-tracked work to finish, and the
+  pending HTTP request _is_ that work; it can't finish until the test
+  itself flushes it. The rule is stricter than "call `whenStable` around
+  async resource updates" — it's specifically "flush the request first,
+  `whenStable` after," never before.
