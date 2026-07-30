@@ -3,6 +3,7 @@ import { provideRouter, Router } from '@angular/router';
 import { App } from './app';
 import { routes } from './app.routes';
 import { Favorites } from './favorites';
+import { HttpLoading } from './http-loading';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -63,5 +64,22 @@ describe('App', () => {
 
     expect(button.getAttribute('aria-pressed')).toBe('false');
     expect(favorites.isFavorite('/counter')).toBe(false);
+  });
+
+  it('should show the loading bar only while a request is pending', () => {
+    const fixture = TestBed.createComponent(App);
+    const httpLoading = TestBed.inject(HttpLoading);
+    fixture.detectChanges();
+
+    const bar = (fixture.nativeElement as HTMLElement).querySelector('.loading-bar');
+    expect(bar?.classList.contains('loading-bar--active')).toBe(false);
+
+    httpLoading.start();
+    fixture.detectChanges();
+    expect(bar?.classList.contains('loading-bar--active')).toBe(true);
+
+    httpLoading.stop();
+    fixture.detectChanges();
+    expect(bar?.classList.contains('loading-bar--active')).toBe(false);
   });
 });
