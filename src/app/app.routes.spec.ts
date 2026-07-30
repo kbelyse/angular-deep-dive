@@ -26,6 +26,12 @@ describe('app routes', () => {
     expect(compiled.querySelector('h2')?.textContent).toContain('Home');
   });
 
+  it('should render the Learn more tabs on Home', async () => {
+    const harness = await RouterTestingHarness.create('/');
+    const compiled = harness.routeNativeElement as HTMLElement;
+    expect(compiled.querySelectorAll('[role="tab"]').length).toBe(3);
+  });
+
   it('should render Counter at /counter', async () => {
     const harness = await RouterTestingHarness.create('/counter');
     const compiled = harness.routeNativeElement as HTMLElement;
