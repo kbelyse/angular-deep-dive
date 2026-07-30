@@ -1024,3 +1024,56 @@ triggers a `transform: scaleX(1)` over a slow 4-second easing curve — it
 communicates "something is happening," and gets yanked to 0 immediately
 once loading flips back to false, rather than trying to simulate real
 progress it has no way to measure.
+
+## 2026-07-30 — Content projection with `contentChildren()`: a Tabs component
+
+**Why `Tab.active` is a plain signal, not an `input()`:** `input()` values
+come from template bindings the _consumer_ writes — but the consumer's
+markup is just `<app-tab title="…">…</app-tab>`, with no `[active]` binding
+anywhere, because the consumer doesn't know which tab is selected; `Tabs`
+does. So `Tabs` needs to reach into each projected `Tab` instance and tell
+it directly, which is exactly what `contentChildren()` hands back — live
+component instances, not just their rendered DOM:
+
+```ts
+readonly tabs = contentChildren(Tab);
+
+constructor() {
+  effect(() => {
+    const selected = this.selectedIndex();
+    this.tabs().forEach((tab, i) => (i === selected ? tab.activate() : tab.deactivate()));
+  });
+}
+```
+
+`activate()`/`deactivate()` are plain methods that flip an internal
+`signal(false)`, exposed read-only as `active = this.activeState.asReadonly()`.
+Using `input()` here would mean the consumer's template would need
+`[active]="i === selectedIndex"` on every `<app-tab>` — pushing the
+container's own bookkeeping out into whoever uses it. Keeping `active`
+internal-but-controllable is what makes `<app-tabs><app-tab title="X">…</app-tab></app-tabs>`
+work with zero wiring from the caller.
+
+**Roving tabindex, not one tabindex per button:** every unselected tab
+button gets `tabindex="-1"`, the selected one gets `tabindex="0"` — so
+Tab key only ever stops once on the tablist, and arrow keys move both
+selection _and_ focus within it. This is the WAI-ARIA tabs pattern, not an
+arbitrary choice — a screen reader or keyboard-only user tabbing through
+the page should encounter "the tablist" as a single stop, then use arrow
+keys to explore it, the same way a native `<select>` behaves.
+
+**`viewChildren()` for the buttons, `contentChildren()` for the tabs —
+different query for different origin:** `Tab` instances come from
+projected content (between `<app-tabs>` and `</app-tabs>`), but the
+`<button>` elements the keyboard handler needs to `.focus()` are part of
+`Tabs`'s _own_ template. Reaching for `contentChildren` on the buttons
+would find nothing — they're not projected content — which is why the
+buttons are queried with `viewChildren<ElementRef<HTMLButtonElement>>('tabButton')`
+against a template reference variable instead.
+
+**A static module-level counter for unique ids, not `crypto.randomUUID()`:**
+`aria-controls`/`aria-labelledby` need ids that are stable and unique
+per-instance across the whole page, not cryptographically unpredictable —
+a simple `let nextTabId = 0` incremented per `Tab` construction is enough,
+and avoids reaching for browser crypto APIs to solve a problem that doesn't
+need them.
