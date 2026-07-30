@@ -958,3 +958,69 @@ assumption:**
   itself flushes it. The rule is stricter than "call `whenStable` around
   async resource updates" — it's specifically "flush the request first,
   `whenStable` after," never before.
+
+## 2026-07-30 — Functional interceptors and a global loading indicator
+
+**Why a service in between, instead of the interceptor touching the DOM
+directly:** `loadingInterceptor` only knows about one request at a time —
+it has no idea whether other requests are in flight elsewhere in the app.
+So it doesn't track "loading" itself; it just increments/decrements a
+shared counter on `HttpLoading`, and `App` reads `isLoading()` to decide
+what to show. Three separate concerns (counting, deciding, rendering)
+instead of one interceptor trying to do all three:
+
+```ts
+@Injectable({ providedIn: 'root' })
+export class HttpLoading {
+  private readonly pendingRequests = signal(0);
+  readonly isLoading = computed(() => this.pendingRequests() > 0);
+
+  start(): void {
+    this.pendingRequests.update((count) => count + 1);
+  }
+
+  stop(): void {
+    this.pendingRequests.update((count) => Math.max(0, count - 1));
+  }
+}
+```
+
+The `Math.max(0, ...)` in `stop()` isn't defensive-programming-for-its-own-sake:
+it's there because interceptors and resources can retry or cancel in ways
+that could theoretically call `stop()` more times than `start()` for the
+same logical request, and a negative count would mean `isLoading()` reports
+`false` while a request is actually still pending. Cheap to guard, expensive
+to debug if the counter drifts negative in production.
+
+**Functional interceptors are just a function shaped like a middleware
+step, registered once:**
+
+```ts
+export const loadingInterceptor: HttpInterceptorFn = (req, next) => {
+  const httpLoading = inject(HttpLoading);
+  httpLoading.start();
+  return next(req).pipe(finalize(() => httpLoading.stop()));
+};
+```
+
+```ts
+provideHttpClient(withInterceptors([loadingInterceptor]));
+```
+
+`inject()` works here even though this isn't a class — `HttpInterceptorFn`
+runs inside an injection context that the router/HttpClient sets up per
+call, same trick `CanActivateFn` guards use (07-29). The important part is
+`finalize()`, not `tap()` on the success path: `finalize` runs on
+completion _or_ error _or_ unsubscribe, so a failed request (tested by
+flushing a 500) still decrements the counter. A `tap()` on the response
+would only fire on success and silently leave the counter stuck for every
+failed request — verified this distinction with a dedicated test rather
+than assuming `finalize` was the right choice.
+
+**The indicator is a CSS transform, not a client-side percentage:** there's
+no way to know how much of a fetch is actually left, so faking a real
+progress percentage would be dishonest. Instead `.loading-bar--active`
+triggers a `transform: scaleX(1)` over a slow 4-second easing curve — it
+communicates "something is happening," and gets yanked to 0 immediately
+once loading flips back to false, rather than trying to simulate real
+progress it has no way to measure.
