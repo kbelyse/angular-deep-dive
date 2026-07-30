@@ -1,3 +1,12 @@
+<div
+  class="loading-bar"
+  role="status"
+  aria-live="polite"
+  [class.loading-bar--active]="httpLoading.isLoading()"
+>
+  <span class="visually-hidden">{{ httpLoading.isLoading() ? 'Loading' : '' }}</span>
+</div>
+
 <header>
   <h1>{{ title() }}</h1>
   <nav>
