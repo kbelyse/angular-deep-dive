@@ -114,6 +114,34 @@ describe('Tabs', () => {
 
     expect(tabButtons()[0].getAttribute('aria-selected')).toBe('true');
   });
+
+  it('should apply the "Fruit" label passed by the host', () => {
+    expect(nativeEl.querySelector('[role="tablist"]')?.getAttribute('aria-label')).toBe('Fruit');
+  });
+});
+
+@Component({
+  imports: [Tabs, Tab],
+  template: `
+    <app-tabs>
+      <app-tab title="Only">Only content</app-tab>
+    </app-tabs>
+  `,
+})
+class UnlabeledHost {}
+
+describe('Tabs without an explicit label', () => {
+  it('should fall back to the default "Tabs" aria-label', async () => {
+    await TestBed.configureTestingModule({
+      imports: [UnlabeledHost],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(UnlabeledHost);
+    fixture.detectChanges();
+
+    const tablist = (fixture.nativeElement as HTMLElement).querySelector('[role="tablist"]');
+    expect(tablist?.getAttribute('aria-label')).toBe('Tabs');
+  });
 });
 
 @Component({
