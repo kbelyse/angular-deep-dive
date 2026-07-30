@@ -57,6 +57,20 @@ describe('Home', () => {
     expect(links[1].textContent).toContain('/feedback');
   });
 
+  it('should render the Learn more tabs with the Overview panel selected first', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    const tabButtons = compiled.querySelectorAll('[role="tab"]');
+
+    expect(Array.from(tabButtons).map((b) => b.textContent?.trim())).toEqual([
+      'Overview',
+      'Keyboard shortcuts',
+      'Accessibility',
+    ]);
+    expect(compiled.querySelector('[role="tabpanel"]')?.textContent).toContain(
+      'running log of Angular concepts',
+    );
+  });
+
   describe('recent posts defer block', () => {
     it('should show the placeholder before the block triggers', () => {
       const compiled = fixture.nativeElement as HTMLElement;
