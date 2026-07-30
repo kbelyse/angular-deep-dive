@@ -14,6 +14,25 @@
   <p class="empty">Nothing favorited yet — use the star button in the header on any page.</p>
 }
 
+<h3>Learn more</h3>
+<app-tabs label="Learn more about this app">
+  <app-tab title="Overview">
+    <p>
+      This app is a running log of Angular concepts, each demonstrated with a small working feature
+      and real tests.
+    </p>
+  </app-tab>
+  <app-tab title="Keyboard shortcuts">
+    <p>These tabs support arrow-key navigation, plus Home and End to jump to either end.</p>
+  </app-tab>
+  <app-tab title="Accessibility">
+    <p>
+      Every feature here targets WCAG AA: visible focus states, ARIA roles, and no color-only
+      signalling.
+    </p>
+  </app-tab>
+</app-tabs>
+
 @defer (on viewport) {
   <app-recent-posts />
 } @placeholder {
