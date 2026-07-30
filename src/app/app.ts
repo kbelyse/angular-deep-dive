@@ -3,6 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { Favorites } from './favorites';
+import { HttpLoading } from './http-loading';
 
 @Component({
   selector: 'app-root',
@@ -15,6 +16,7 @@ export class App {
 
   private readonly router = inject(Router);
   private readonly favorites = inject(Favorites);
+  protected readonly httpLoading = inject(HttpLoading);
 
   protected readonly currentPath = toSignal(
     this.router.events.pipe(
