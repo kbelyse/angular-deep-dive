@@ -115,3 +115,38 @@ describe('Tabs', () => {
     expect(tabButtons()[0].getAttribute('aria-selected')).toBe('true');
   });
 });
+
+@Component({
+  imports: [Tabs, Tab],
+  template: `
+    <app-tabs label="Solo">
+      <app-tab title="Only">Only content</app-tab>
+    </app-tabs>
+  `,
+})
+class SingleTabHost {}
+
+describe('Tabs with a single tab', () => {
+  let fixture: ComponentFixture<SingleTabHost>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [SingleTabHost],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(SingleTabHost);
+    fixture.detectChanges();
+  });
+
+  it('should wrap ArrowRight back onto the same tab', () => {
+    const button = (fixture.nativeElement as HTMLElement).querySelector(
+      '[role="tab"]',
+    ) as HTMLButtonElement;
+
+    button.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(button.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(button);
+  });
+});
