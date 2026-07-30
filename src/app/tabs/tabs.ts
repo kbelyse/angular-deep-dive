@@ -13,7 +13,6 @@ import { Tab } from './tab';
 
 @Component({
   selector: 'app-tabs',
-  imports: [Tab],
   templateUrl: './tabs.html',
   styleUrl: './tabs.scss',
 })
