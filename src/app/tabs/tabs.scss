@@ -1,0 +1,37 @@
+[role='tablist'] {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+[role='tab'] {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: #f3f3f3;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: -2px;
+  }
+
+  &[aria-selected='true'] {
+    border-bottom-color: #2563eb;
+    font-weight: 600;
+  }
+}
+
+[role='tabpanel'] {
+  padding: 1rem 0;
+
+  &:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
+}
