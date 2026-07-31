@@ -6,6 +6,10 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { routes } from './app.routes';
 
+function routeData(path: string): Record<string, unknown> | undefined {
+  return routes.find((route) => route.path === path)?.data;
+}
+
 describe('app routes', () => {
   let httpMock: HttpTestingController;
 
@@ -76,5 +80,11 @@ describe('app routes', () => {
   it('should set the document title per route', async () => {
     await RouterTestingHarness.create('/counter');
     expect(TestBed.inject(Title).getTitle()).toBe('Counter · Angular Deep Dive');
+  });
+
+  it('should flag posts and counter for preloading, but not feedback', () => {
+    expect(routeData('posts')?.['preload']).toBe(true);
+    expect(routeData('counter')?.['preload']).toBe(true);
+    expect(routeData('feedback')?.['preload']).toBeUndefined();
   });
 });
