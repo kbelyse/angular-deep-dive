@@ -156,6 +156,14 @@ describe('Posts', () => {
     expect(nativeEl().querySelector('.preview h3')?.textContent).toBe('Reloaded');
   });
 
+  it('should show no preview panel when there are no posts', async () => {
+    httpMock.expectOne(POSTS_URL).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(nativeEl().querySelector('.preview')).toBeNull();
+  });
+
   it('should show an estimated reading time in the preview panel', async () => {
     const longBody = Array(250).fill('word').join(' ');
     httpMock.expectOne(POSTS_URL).flush([{ id: 1, title: 'Long post', body: longBody }]);
