@@ -24,6 +24,12 @@ export class Posts {
     () => this.postsResource.value().find((post) => post.id === this.selectedPostId()) ?? null,
   );
 
+  protected readonly readingMinutes = computed(() => {
+    const body = this.selectedPost()?.body ?? '';
+    const wordCount = body.split(/\s+/).filter(Boolean).length;
+    return Math.max(1, Math.ceil(wordCount / 200));
+  });
+
   protected select(id: number): void {
     this.selectedPostId.set(id);
   }
