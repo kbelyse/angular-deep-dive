@@ -117,4 +117,21 @@ describe('Posts', () => {
     expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
     expect(buttons[1].getAttribute('aria-pressed')).toBe('false');
   });
+
+  it('should switch the preview when a different Preview button is clicked', async () => {
+    httpMock.expectOne(POSTS_URL).flush([
+      { id: 1, title: 'First', body: 'First body.' },
+      { id: 2, title: 'Second', body: 'Second body.' },
+    ]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const buttons = nativeEl().querySelectorAll<HTMLButtonElement>('.preview-toggle');
+    buttons[1].click();
+    fixture.detectChanges();
+
+    expect(nativeEl().querySelector('.preview h3')?.textContent).toBe('Second');
+    expect(buttons[0].getAttribute('aria-pressed')).toBe('false');
+    expect(buttons[1].getAttribute('aria-pressed')).toBe('true');
+  });
 });
