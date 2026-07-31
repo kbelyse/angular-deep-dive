@@ -103,4 +103,18 @@ describe('Posts', () => {
     expect(nativeEl().querySelector('.error')).toBeNull();
     expect(nativeEl().querySelector('.posts-list li')?.textContent).toContain('Retried');
   });
+
+  it('should preview the first post by default once posts load', async () => {
+    httpMock.expectOne(POSTS_URL).flush([
+      { id: 1, title: 'First', body: 'First body.' },
+      { id: 2, title: 'Second', body: 'Second body.' },
+    ]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(nativeEl().querySelector('.preview h3')?.textContent).toBe('First');
+    const buttons = nativeEl().querySelectorAll('.preview-toggle');
+    expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
+    expect(buttons[1].getAttribute('aria-pressed')).toBe('false');
+  });
 });
