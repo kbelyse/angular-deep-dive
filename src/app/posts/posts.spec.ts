@@ -176,4 +176,21 @@ describe('Posts', () => {
     expect(buttons[0].getAttribute('aria-label')).toBe('Preview First');
     expect(buttons[1].getAttribute('aria-label')).toBe('Preview Second');
   });
+
+  it('should mark the preview panel as an accessible live region', async () => {
+    httpMock.expectOne(POSTS_URL).flush([{ id: 1, title: 'First', body: 'First body.' }]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(nativeEl().querySelector('.preview')?.getAttribute('aria-live')).toBe('polite');
+  });
+
+  it('should show an estimated reading time in the preview panel', async () => {
+    const longBody = Array(250).fill('word').join(' ');
+    httpMock.expectOne(POSTS_URL).flush([{ id: 1, title: 'Long post', body: longBody }]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(nativeEl().querySelector('.reading-time')?.textContent).toBe('2 min read');
+  });
 });
