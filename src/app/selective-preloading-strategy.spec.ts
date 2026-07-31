@@ -1,9 +1,17 @@
+import { TestBed } from '@angular/core/testing';
 import { Route } from '@angular/router';
 import { of } from 'rxjs';
 
 import { SelectivePreloadingStrategy } from './selective-preloading-strategy';
 
 describe('SelectivePreloadingStrategy', () => {
+  it('should resolve via Angular DI as a root-provided singleton', () => {
+    const a = TestBed.inject(SelectivePreloadingStrategy);
+    const b = TestBed.inject(SelectivePreloadingStrategy);
+    expect(a).toBeInstanceOf(SelectivePreloadingStrategy);
+    expect(a).toBe(b);
+  });
+
   let strategy: SelectivePreloadingStrategy;
 
   beforeEach(() => {
