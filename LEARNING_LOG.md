@@ -1077,3 +1077,55 @@ per-instance across the whole page, not cryptographically unpredictable —
 a simple `let nextTabId = 0` incremented per `Tab` construction is enough,
 and avoids reaching for browser crypto APIs to solve a problem that doesn't
 need them.
+
+## 2026-07-31 — `linkedSignal()`: a default that resets, but stays overridable
+
+`computed()` can't model this Posts-page preview feature: I want the
+previewed post to default to the first post in the list, but I also want
+the user to be able to click "Preview" on any other post and have that
+stick. A plain `computed()` can only ever reflect its inputs — it has no
+concept of "unless someone overrode me." `linkedSignal()` is the signal
+primitive built for exactly this gap: writable like a `signal()`, but with
+a computation that re-derives its value whenever the _source_ it reads
+changes:
+
+```ts
+protected readonly selectedPostId = linkedSignal(
+  () => this.postsResource.value()[0]?.id ?? null,
+);
+
+protected select(id: number): void {
+  this.selectedPostId.set(id);
+}
+```
+
+Clicking "Preview" on post #2 calls `.set(2)`, which sticks — the computed
+default doesn't re-run just because time passes. But `postsResource.value()`
+is the signal being read _inside_ the computation, so the moment it
+produces a new array (a `reload()` after Retry, for instance), Angular
+reruns the linked computation from scratch and `selectedPostId` snaps back
+to the new first post, silently discarding whatever the user had clicked
+before. That's not a bug to work around — it's the actual desired
+behavior: a stale selection pointing at a post that may not even exist in
+the new list would be worse than resetting. Verified with three tests: it
+defaults to the first post, a click overrides it, and a `reload()` after
+that override resets it — the third test is the one that actually
+distinguishes `linkedSignal` from `computed` plus a boolean "has the user
+touched this" flag, which is the naive way to hand-roll the same behavior.
+
+**Why `selectedPost` and `readingMinutes` are separate `computed()`s, not
+folded into the `linkedSignal`:** `selectedPostId` is the one piece of
+state that needs the reset-on-source-change behavior; `selectedPost`
+(looking the id up in the list) and `readingMinutes` (a word count off the
+selected post's body) are pure derivations with no independent state of
+their own. Keeping them as plain `computed()` chained off the
+`linkedSignal` — rather than duplicating the lookup logic inside a bigger
+linked computation — keeps each piece answerable to exactly one question.
+
+**Accessible name collisions were a real bug, not a nitpick:** every row's
+button says "Preview," which is fine visually but means a screen reader
+user navigating by a buttons list hears "Preview, Preview, Preview…" with
+no way to tell them apart. Adding `[attr.aria-label]="'Preview ' + post.title"`
+keeps the visible label short while giving each button a distinct
+accessible name — caught by writing a test that asserts on `aria-label`
+per button, not by an automated audit.
