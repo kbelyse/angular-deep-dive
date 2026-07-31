@@ -24,6 +24,10 @@ export class Posts {
     () => this.postsResource.value().find((post) => post.id === this.selectedPostId()) ?? null,
   );
 
+  protected select(id: number): void {
+    this.selectedPostId.set(id);
+  }
+
   protected retry(): void {
     this.postsResource.reload();
   }
