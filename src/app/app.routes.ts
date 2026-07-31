@@ -10,6 +10,7 @@ export const routes: Routes = [
   {
     path: 'counter',
     title: 'Counter · Angular Deep Dive',
+    data: { preload: true },
     loadComponent: () => import('./counter/counter').then((m) => m.Counter),
   },
   {
