@@ -1129,3 +1129,49 @@ no way to tell them apart. Adding `[attr.aria-label]="'Preview ' + post.title"`
 keeps the visible label short while giving each button a distinct
 accessible name — caught by writing a test that asserts on `aria-label`
 per button, not by an automated audit.
+
+## 2026-07-31 — A custom `PreloadingStrategy` for selective route preloading
+
+Angular lazy-loads each feature route's JS on first navigation to it —
+good for the initial bundle, but it means clicking "Posts" for the first
+time pays a network round-trip the user notices. `withPreloading()` lets
+the router fetch a lazy chunk in the background _after_ the app has
+finished bootstrapping, so by the time someone actually clicks the link
+the code is already sitting in memory. The built-in `PreloadAllModules`
+strategy preloads everything, which defeats half the point of lazy-loading
+routes that are rarely visited (like the not-found page) — a custom
+`PreloadingStrategy` lets each route opt in individually:
+
+```ts
+@Injectable({ providedIn: 'root' })
+export class SelectivePreloadingStrategy implements PreloadingStrategy {
+  preload(route: Route, load: () => Observable<unknown>): Observable<unknown> {
+    return route.data?.['preload'] ? load() : of(null);
+  }
+}
+```
+
+```ts
+provideRouter(routes, withComponentInputBinding(), withPreloading(SelectivePreloadingStrategy));
+```
+
+Routes flagged `data: { preload: true }` (posts, counter — the two most
+likely next stops from Home) get preloaded; everything else only loads on
+actual navigation. The `Route`/`load` shape mirrors functional interceptors
+and guards from the last two days: the router hands the strategy a plain
+description of the route and a thunk to call if it wants the chunk fetched,
+and the strategy just returns an observable — `load()`'s result if it
+preloads, `of(null)` if it declines. No DOM, no component, nothing to
+render; that's what made it possible to unit-test by calling `new
+SelectivePreloadingStrategy().preload(...)` directly with a hand-built
+`Route` and a `vi.fn()` in place of `load`, rather than standing up a full
+router harness.
+
+**Testing both "does it call load" and "does it resolve via DI" mattered
+for different reasons:** the `new SelectivePreloadingStrategy()` tests
+check the actual branching logic in isolation — no Angular test bed
+needed. A separate test asserts `TestBed.inject(SelectivePreloadingStrategy)`
+returns the same instance twice, which is really a test that
+`providedIn: 'root'` is doing its job — a logic bug and a DI-wiring bug
+are different failure modes, and a test suite that only checks one of them
+can pass while the other is silently broken.
