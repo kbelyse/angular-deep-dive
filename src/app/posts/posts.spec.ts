@@ -134,4 +134,25 @@ describe('Posts', () => {
     expect(buttons[0].getAttribute('aria-pressed')).toBe('false');
     expect(buttons[1].getAttribute('aria-pressed')).toBe('true');
   });
+
+  it('should reset the preview to the new first post after a reload', async () => {
+    httpMock.expectOne(POSTS_URL).flush([
+      { id: 1, title: 'First', body: 'First body.' },
+      { id: 2, title: 'Second', body: 'Second body.' },
+    ]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    nativeEl().querySelectorAll<HTMLButtonElement>('.preview-toggle')[1].click();
+    fixture.detectChanges();
+    expect(nativeEl().querySelector('.preview h3')?.textContent).toBe('Second');
+
+    component['postsResource'].reload();
+    fixture.detectChanges();
+    httpMock.expectOne(POSTS_URL).flush([{ id: 3, title: 'Reloaded', body: 'Reloaded body.' }]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(nativeEl().querySelector('.preview h3')?.textContent).toBe('Reloaded');
+  });
 });
