@@ -24,6 +24,7 @@
           type="button"
           class="preview-toggle"
           [attr.aria-pressed]="selectedPostId() === post.id"
+          [attr.aria-label]="'Preview ' + post.title"
           (click)="select(post.id)"
         >
           Preview
