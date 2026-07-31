@@ -20,6 +20,7 @@ export const routes: Routes = [
   {
     path: 'posts',
     title: 'Posts · Angular Deep Dive',
+    data: { preload: true },
     loadComponent: () => import('./posts/posts').then((m) => m.Posts),
   },
   {
