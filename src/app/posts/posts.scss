@@ -50,6 +50,53 @@ h2 {
   &.highlighted {
     background: #f3f4f6;
   }
+
+  &.selected {
+    box-shadow: inset 3px 0 0 #2563eb;
+  }
+}
+
+.preview-toggle {
+  margin-top: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid #ccc;
+  border-radius: 0.375rem;
+  background: #fff;
+  font-size: 0.875rem;
+  cursor: pointer;
+
+  &:hover {
+    background: #f3f3f3;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
+
+  &[aria-pressed='true'] {
+    border-color: #2563eb;
+    color: #2563eb;
+  }
+}
+
+.preview {
+  max-width: 32rem;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #e5e5e5;
+  border-radius: 0.375rem;
+
+  h3 {
+    margin-top: 0;
+    text-transform: capitalize;
+  }
+
+  .reading-time {
+    margin-bottom: 0;
+    color: #666;
+    font-size: 0.875rem;
+  }
 }
 
 .posts-list h3 {
