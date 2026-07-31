@@ -1,4 +1,4 @@
-import { Component, linkedSignal } from '@angular/core';
+import { Component, computed, linkedSignal } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { RowHighlight } from '../row-highlight';
@@ -19,6 +19,10 @@ export class Posts {
   });
 
   protected readonly selectedPostId = linkedSignal(() => this.postsResource.value()[0]?.id ?? null);
+
+  protected readonly selectedPost = computed(
+    () => this.postsResource.value().find((post) => post.id === this.selectedPostId()) ?? null,
+  );
 
   protected retry(): void {
     this.postsResource.reload();
