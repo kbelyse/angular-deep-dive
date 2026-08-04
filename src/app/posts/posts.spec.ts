@@ -267,5 +267,25 @@ describe('Posts', () => {
         'No posts match "nonexistent"',
       );
     });
+
+    it('should announce the result count once the debounce settles', () => {
+      const region = nativeEl().querySelector('.visually-hidden[aria-live]');
+      expect(region?.textContent).toBe('');
+
+      typeQuery('signals');
+      vi.advanceTimersByTime(250);
+      fixture.detectChanges();
+
+      expect(region?.textContent).toBe('1 post found.');
+    });
+
+    it('should pluralize the announcement for multiple matches', () => {
+      typeQuery('s');
+      vi.advanceTimersByTime(250);
+      fixture.detectChanges();
+
+      const region = nativeEl().querySelector('.visually-hidden[aria-live]');
+      expect(region?.textContent).toBe('2 posts found.');
+    });
   });
 });
