@@ -1,4 +1,4 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { computed, effect, Injectable, signal } from '@angular/core';
 
 const STORAGE_KEY = 'favorite-paths';
 
@@ -23,6 +23,12 @@ export class Favorites {
   private readonly paths = signal<ReadonlySet<string>>(initialPaths());
 
   readonly all = computed(() => Array.from(this.paths()));
+
+  constructor() {
+    effect(() => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.all()));
+    });
+  }
 
   isFavorite(path: string): boolean {
     return this.paths().has(path);
