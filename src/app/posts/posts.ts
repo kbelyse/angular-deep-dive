@@ -1,4 +1,4 @@
-import { Component, computed, linkedSignal } from '@angular/core';
+import { Component, computed, linkedSignal, signal } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { RowHighlight } from '../row-highlight';
@@ -18,6 +18,8 @@ export class Posts {
     parse: parsePosts,
   });
 
+  protected readonly query = signal('');
+
   protected readonly selectedPostId = linkedSignal(() => this.postsResource.value()[0]?.id ?? null);
 
   protected readonly selectedPost = computed(
@@ -32,6 +34,10 @@ export class Posts {
 
   protected select(id: number): void {
     this.selectedPostId.set(id);
+  }
+
+  protected onQueryInput(event: Event): void {
+    this.query.set((event.target as HTMLInputElement).value);
   }
 
   protected retry(): void {
