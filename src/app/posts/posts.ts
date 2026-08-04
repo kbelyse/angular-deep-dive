@@ -33,6 +33,14 @@ export class Posts {
     return query ? posts.filter((post) => post.title.toLowerCase().includes(query)) : posts;
   });
 
+  protected readonly resultsAnnouncement = computed(() => {
+    if (!this.debouncedQuery().trim()) {
+      return '';
+    }
+    const count = this.filteredPosts().length;
+    return `${count} ${count === 1 ? 'post' : 'posts'} found.`;
+  });
+
   protected readonly selectedPostId = linkedSignal(() => this.postsResource.value()[0]?.id ?? null);
 
   protected readonly selectedPost = computed(
