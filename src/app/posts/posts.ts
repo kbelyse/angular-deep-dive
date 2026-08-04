@@ -1,6 +1,8 @@
 import { Component, computed, linkedSignal, signal } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
+import { debounceTime } from 'rxjs';
 import { RowHighlight } from '../row-highlight';
 import { Post, parsePosts } from '../post';
 
@@ -19,6 +21,10 @@ export class Posts {
   });
 
   protected readonly query = signal('');
+
+  private readonly debouncedQuery = toSignal(toObservable(this.query).pipe(debounceTime(250)), {
+    initialValue: '',
+  });
 
   protected readonly selectedPostId = linkedSignal(() => this.postsResource.value()[0]?.id ?? null);
 
