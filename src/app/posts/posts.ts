@@ -26,6 +26,12 @@ export class Posts {
     initialValue: '',
   });
 
+  protected readonly filteredPosts = computed(() => {
+    const query = this.debouncedQuery().trim().toLowerCase();
+    const posts = this.postsResource.value();
+    return query ? posts.filter((post) => post.title.toLowerCase().includes(query)) : posts;
+  });
+
   protected readonly selectedPostId = linkedSignal(() => this.postsResource.value()[0]?.id ?? null);
 
   protected readonly selectedPost = computed(
