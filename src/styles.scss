@@ -21,7 +21,12 @@
 body {
   background: var(--color-bg);
   color: var(--color-text);
-  transition:
-    background 0.15s ease-out,
-    color 0.15s ease-out;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body {
+    transition:
+      background 0.15s ease-out,
+      color 0.15s ease-out;
+  }
 }
