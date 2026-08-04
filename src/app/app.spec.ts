@@ -4,6 +4,7 @@ import { App } from './app';
 import { routes } from './app.routes';
 import { Favorites } from './favorites';
 import { HttpLoading } from './http-loading';
+import { ThemePreference } from './theme-preference';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -64,6 +65,23 @@ describe('App', () => {
 
     expect(button.getAttribute('aria-pressed')).toBe('false');
     expect(favorites.isFavorite('/counter')).toBe(false);
+  });
+
+  it('should toggle the theme preference from the header button', () => {
+    const fixture = TestBed.createComponent(App);
+    const themePreference = TestBed.inject(ThemePreference);
+    fixture.detectChanges();
+
+    const button = (fixture.nativeElement as HTMLElement).querySelector(
+      '.theme-toggle',
+    ) as HTMLButtonElement;
+    const initial = themePreference.current();
+
+    button.click();
+    fixture.detectChanges();
+
+    expect(themePreference.current()).not.toBe(initial);
+    expect(button.getAttribute('aria-pressed')).toBe(String(themePreference.current() === 'dark'));
   });
 
   it('should show the loading bar only while a request is pending', () => {
