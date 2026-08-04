@@ -193,4 +193,79 @@ describe('Posts', () => {
 
     expect(nativeEl().querySelector('.reading-time')?.textContent).toBe('2 min read');
   });
+
+  describe('search filtering', () => {
+    beforeEach(async () => {
+      httpMock.expectOne(POSTS_URL).flush([
+        { id: 1, title: 'Signals deep dive', body: 'All about signals.' },
+        { id: 2, title: 'Routing basics', body: 'All about routes.' },
+      ]);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    function typeQuery(value: string): void {
+      const input = nativeEl().querySelector('.search-field input') as HTMLInputElement;
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    }
+
+    it('should not filter before the debounce window elapses', () => {
+      typeQuery('signals');
+      vi.advanceTimersByTime(100);
+      fixture.detectChanges();
+
+      expect(nativeEl().querySelectorAll('.posts-list li').length).toBe(2);
+    });
+
+    it('should filter to matching titles once debounced', () => {
+      typeQuery('signals');
+      vi.advanceTimersByTime(250);
+      fixture.detectChanges();
+
+      const items = nativeEl().querySelectorAll('.posts-list li');
+      expect(items.length).toBe(1);
+      expect(items[0].textContent).toContain('Signals deep dive');
+    });
+
+    it('should match case-insensitively', () => {
+      typeQuery('ROUTING');
+      vi.advanceTimersByTime(250);
+      fixture.detectChanges();
+
+      const items = nativeEl().querySelectorAll('.posts-list li');
+      expect(items.length).toBe(1);
+      expect(items[0].textContent).toContain('Routing basics');
+    });
+
+    it('should show every post again once the query is cleared', () => {
+      typeQuery('signals');
+      vi.advanceTimersByTime(250);
+      fixture.detectChanges();
+
+      typeQuery('');
+      vi.advanceTimersByTime(250);
+      fixture.detectChanges();
+
+      expect(nativeEl().querySelectorAll('.posts-list li').length).toBe(2);
+      expect(nativeEl().querySelector('.empty')).toBeNull();
+    });
+
+    it('should show a no-results message when nothing matches', () => {
+      typeQuery('nonexistent');
+      vi.advanceTimersByTime(250);
+      fixture.detectChanges();
+
+      expect(nativeEl().querySelectorAll('.posts-list li').length).toBe(0);
+      expect(nativeEl().querySelector('.empty')?.textContent).toContain(
+        'No posts match "nonexistent"',
+      );
+    });
+  });
 });
