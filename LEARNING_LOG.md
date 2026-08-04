@@ -1330,3 +1330,61 @@ scoped to their own nested `describe('search filtering', …)` block rather
 than the whole spec file, because every other test in `posts.spec.ts`
 awaits `fixture.whenStable()`, which depends on Zone's real macrotask
 queue — leaving fake timers on globally would hang those unrelated tests.
+
+## 2026-08-04 — A `Pipe` to stop copy-pasting the reading-time math
+
+`Posts` and `PostDetail` both wanted a reading-time estimate, and the
+logic had already been written once (inside a `computed()` in `Posts`).
+Copy-pasting that `computed()` into `PostDetail` would have meant two
+copies of the same word-counting math to keep in sync forever. The fix
+was two small extractions instead: a plain function pulled out of the
+component entirely, then a thin `Pipe` wrapping it for template use in
+both places.
+
+```ts
+// post.ts — pure, no Angular imports needed
+export function readingTime(body: string): number {
+  const wordCount = body.split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(wordCount / 200));
+}
+```
+
+```ts
+// reading-time.ts
+@Pipe({ name: 'readingTime' })
+export class ReadingTime implements PipeTransform {
+  transform(body: string): string {
+    return `${readingTime(body)} min read`;
+  }
+}
+```
+
+```html
+<p class="reading-time">{{ post.body | readingTime }}</p>
+```
+
+**Two extractions, not one, because they solve different problems:** the
+plain `readingTime()` function is what's actually reusable and testable
+in isolation — `readingTime('word '.repeat(400))` needs nothing from
+Angular to assert on. The `Pipe` wrapping it exists only to make that
+function callable from a template with `|` syntax and to own the display
+formatting (`"N min read"`) so that string isn't duplicated at each call
+site either. Testing them separately reflects that split: `post.spec.ts`
+asserts on the numeric edge cases (rounds up, floors at 1, collapses
+whitespace), `reading-time.spec.ts` asserts only on the pipe's own job —
+formatting a number that's already correct.
+
+**`new ReadingTime().transform(body)` needed no `TestBed` at all:** like
+`SelectivePreloadingStrategy`, a pipe with no injected dependencies is
+just a class with one method — instantiating it directly in the test is
+both faster and a more direct signal of what's actually being tested
+(the transform logic) than spinning up Angular's DI to get the same
+instance back.
+
+**Deleting `Posts`' old `readingMinutes` computed left `Posts` itself
+smaller, not just not-bigger:** removing the now-redundant `computed()`
+and its manual word-count math, in favor of one `import` and one pipe
+usage in the template, is the kind of change that's easy to skip because
+it "already works" — but the duplicate logic was a bug waiting for
+`PostDetail`'s copy to drift from `Posts`' copy the next time either one
+changed.
