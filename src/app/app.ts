@@ -4,6 +4,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { filter, map } from 'rxjs';
 import { Favorites } from './favorites';
 import { HttpLoading } from './http-loading';
+import { ThemePreference } from './theme-preference';
 
 @Component({
   selector: 'app-root',
@@ -17,6 +18,7 @@ export class App {
   private readonly router = inject(Router);
   private readonly favorites = inject(Favorites);
   protected readonly httpLoading = inject(HttpLoading);
+  protected readonly themePreference = inject(ThemePreference);
 
   protected readonly currentPath = toSignal(
     this.router.events.pipe(
