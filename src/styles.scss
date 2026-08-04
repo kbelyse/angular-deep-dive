@@ -1,1 +1,27 @@
 /* You can add global styles to this file, and also import other style files */
+
+:root {
+  --color-bg: #ffffff;
+  --color-text: #1a1a1a;
+  --color-border: #e5e5e5;
+  --color-surface-hover: #f3f3f3;
+  --color-accent: #2563eb;
+  --color-accent-surface: #e0e7ff;
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #16181d;
+  --color-text: #e8e8e8;
+  --color-border: #33363d;
+  --color-surface-hover: #23262d;
+  --color-accent: #60a5fa;
+  --color-accent-surface: #1e2a4a;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  transition:
+    background 0.15s ease-out,
+    color 0.15s ease-out;
+}
