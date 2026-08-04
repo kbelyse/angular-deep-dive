@@ -23,6 +23,8 @@
     />
   </label>
 
+  <p class="visually-hidden" aria-live="polite">{{ resultsAnnouncement() }}</p>
+
   @if (query().trim() && filteredPosts().length === 0) {
     <p class="empty">No posts match "{{ query() }}".</p>
   }
