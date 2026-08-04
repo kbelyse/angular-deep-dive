@@ -16,6 +16,7 @@
 } @else if (postResource.hasValue()) {
   <article>
     <h3>{{ postResource.value().title }}</h3>
-    <p>{{ postResource.value().body }}</p>
+    <p class="reading-time">{{ postResource.value().body | readingTime }}</p>
+    <p class="body">{{ postResource.value().body }}</p>
   </article>
 }

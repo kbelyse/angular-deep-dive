@@ -2,13 +2,14 @@ import { Component, effect, inject, input } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
+import { ReadingTime } from '../../reading-time';
 import { Post, parsePost } from '../../post';
 
 const POSTS_URL = 'https://jsonplaceholder.typicode.com/posts';
 
 @Component({
   selector: 'app-post-detail',
-  imports: [RouterLink],
+  imports: [RouterLink, ReadingTime],
   templateUrl: './post-detail.html',
   styleUrl: './post-detail.scss',
 })

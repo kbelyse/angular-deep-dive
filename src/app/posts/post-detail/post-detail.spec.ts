@@ -50,7 +50,18 @@ describe('PostDetail', () => {
     fixture.detectChanges();
 
     expect(nativeEl().querySelector('article h3')?.textContent).toContain('Reactive resources');
-    expect(nativeEl().querySelector('article p')?.textContent).toContain('They refetch on demand.');
+    expect(nativeEl().querySelector('article p.body')?.textContent).toContain(
+      'They refetch on demand.',
+    );
+  });
+
+  it('should show an estimated reading time for the post', async () => {
+    const longBody = Array(400).fill('word').join(' ');
+    httpMock.expectOne(`${POSTS_URL}/1`).flush({ id: 1, title: 'Long post', body: longBody });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(nativeEl().querySelector('.reading-time')?.textContent).toBe('2 min read');
   });
 
   it('should reject a malformed response instead of rendering it', async () => {
