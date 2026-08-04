@@ -46,6 +46,17 @@
   </nav>
   <button
     type="button"
+    class="theme-toggle"
+    [attr.aria-pressed]="themePreference.current() === 'dark'"
+    [attr.aria-label]="
+      themePreference.current() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'
+    "
+    (click)="themePreference.toggle()"
+  >
+    {{ themePreference.current() === 'dark' ? '🌙' : '☀️' }}
+  </button>
+  <button
+    type="button"
     class="favorite-toggle"
     [attr.aria-pressed]="isCurrentPageFavorite()"
     [attr.aria-label]="
