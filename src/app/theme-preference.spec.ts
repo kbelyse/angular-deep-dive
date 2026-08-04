@@ -48,4 +48,28 @@ describe('ThemePreference', () => {
 
     expect(preference.current()).toBe('light');
   });
+
+  it('should flip between light and dark on toggle', () => {
+    stubMatchMedia(false);
+    TestBed.configureTestingModule({});
+    const preference = TestBed.inject(ThemePreference);
+
+    preference.toggle();
+    expect(preference.current()).toBe('dark');
+
+    preference.toggle();
+    expect(preference.current()).toBe('light');
+  });
+
+  it('should persist the toggled theme to localStorage and the document element', () => {
+    stubMatchMedia(false);
+    TestBed.configureTestingModule({});
+    const preference = TestBed.inject(ThemePreference);
+
+    preference.toggle();
+    TestBed.flushEffects();
+
+    expect(localStorage.getItem('theme-preference')).toBe('dark');
+    expect(document.documentElement.dataset['theme']).toBe('dark');
+  });
 });
