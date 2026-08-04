@@ -1175,3 +1175,58 @@ returns the same instance twice, which is really a test that
 `providedIn: 'root'` is doing its job — a logic bug and a DI-wiring bug
 are different failure modes, and a test suite that only checks one of them
 can pass while the other is silently broken.
+
+## 2026-08-04 — `effect()` as the DOM/localStorage sync point for a theme toggle
+
+`ThemePreference` is a `providedIn: 'root'` service wrapping a single
+`signal<'light' | 'dark'>`. What made it worth its own learning-log entry
+isn't the signal — it's `effect()` used for what it's actually for:
+pushing a signal's value out to something Angular doesn't own (here,
+`localStorage` and `document.documentElement.dataset['theme']`), as
+opposed to `computed()`, which can only produce a new in-memory value.
+
+```ts
+constructor() {
+  effect(() => {
+    const theme = this.theme();
+    localStorage.setItem(STORAGE_KEY, theme);
+    document.documentElement.dataset['theme'] = theme;
+  });
+}
+```
+
+**Initial value resolution order — stored preference, then system
+preference, then a hardcoded default — happens once, outside the signal:**
+`initialTheme()` runs synchronously when the `signal()` call is
+constructed, reading `localStorage` first and falling back to
+`matchMedia('(prefers-color-scheme: dark)').matches` only if nothing was
+stored. This is deliberately _not_ reactive — if the OS-level theme
+changes while the tab is open, this app doesn't follow it, because a
+user's explicit in-app toggle should always win once they've made a
+choice, and there's no way to tell "the user never chose" apart from
+"the user chose light" once both are just the string `'light'` in
+`localStorage`. A `null`/unset sentinel is what makes the fallback order
+work at all.
+
+**Testing this needed `vi.stubGlobal('matchMedia', …)`, not a real media
+query:** jsdom doesn't implement `matchMedia`, so the three initial-value
+tests (system prefers light, system prefers dark, stored choice overrides
+system preference) each stub a fake `matchMedia` returning a fixed
+`matches` boolean before injecting the service — the same shape jsdom
+would provide if it had one, just deterministic. The toggle/persistence
+test needed `TestBed.flushEffects()` after calling `.toggle()`: unlike
+`computed()`, which recomputes lazily on read, `effect()` runs on
+Angular's own scheduler, and a test asserting on `localStorage` or
+`document.documentElement` right after calling a signal setter would be
+racing that scheduler without the explicit flush.
+
+**CSS custom properties, not a `[class.dark-mode]` binding on every
+element:** `:root` and `:root[data-theme='dark']` in `styles.scss` define
+the same six variable names (`--color-bg`, `--color-text`,
+`--color-border`, etc.) with different values, and every themed rule in
+`app.scss` references `var(--color-border)` instead of a literal hex
+code. Flipping the theme is then one attribute write
+(`document.documentElement.dataset['theme'] = 'dark'`) that the browser's
+own cascade propagates everywhere a variable is used — no Angular
+involvement needed for the actual repaint, and no per-component style
+binding to keep in sync as new components get added.
