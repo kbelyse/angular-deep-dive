@@ -1280,3 +1280,53 @@ tests need a fresh injector after seeding `localStorage`, which is what
 `TestBed.resetTestingModule()` forces; skipping it would silently test
 nothing, since the already-constructed singleton wouldn't notice the
 seeded value.
+
+## 2026-08-04 — `toObservable`/`toSignal` for a debounced search, and why not `linkedSignal`
+
+Posts needed a search box that filters as you type, but without firing a
+re-filter (and, in a real API, a re-request) on every keystroke. Signals
+have no built-in `debounceTime` — `computed()` and `linkedSignal()` are
+both synchronous, re-running the instant a dependency changes. RxJS still
+owns "spread this out over time," so the debounce boundary is exactly
+where `toObservable`/`toSignal` earn their keep: cross into RxJS for the
+one operator signals can't do, then cross straight back:
+
+```ts
+protected readonly query = signal('');
+
+private readonly debouncedQuery = toSignal(
+  toObservable(this.query).pipe(debounceTime(250)),
+  { initialValue: '' },
+);
+
+protected readonly filteredPosts = computed(() => {
+  const query = this.debouncedQuery().trim().toLowerCase();
+  const posts = this.postsResource.value();
+  return query ? posts.filter((post) => post.title.toLowerCase().includes(query)) : posts;
+});
+```
+
+`filteredPosts` itself is a plain `computed()` again once `debouncedQuery`
+exists — the debounce is the only part of this that isn't expressible as
+a pure, synchronous derivation, so it's the only part that leaves signal
+-land.
+
+**The empty-results message reads the _live_ `query()`, not
+`debouncedQuery()`, on purpose:** `@if (query().trim() && filteredPosts().length === 0)`
+gates on the raw input so the message only appears once there's
+something typed — using `debouncedQuery` there instead would flash "No
+posts match \"\"" for the 250ms between a keystroke and the debounce
+firing, since `filteredPosts` (built from the stale, pre-debounce query)
+would still read as non-matching for a config that hasn't caught up yet.
+The message text itself still interpolates `query()` too, so it reflects
+exactly what's in the box, not what's actually been searched for yet.
+
+**Faking timers to test a debounce, and why `vi.useFakeTimers()` had to
+scope to a nested `describe`:** the debounce tests dispatch a real
+`input` event, then assert nothing changes at `+100ms` and something does
+at `+250ms` — proving the debounce boundary actually holds, not just that
+filtering works eventually. `vi.useFakeTimers()`/`vi.useRealTimers()` are
+scoped to their own nested `describe('search filtering', …)` block rather
+than the whole spec file, because every other test in `posts.spec.ts`
+awaits `fixture.whenStable()`, which depends on Zone's real macrotask
+queue — leaving fake timers on globally would hang those unrelated tests.
