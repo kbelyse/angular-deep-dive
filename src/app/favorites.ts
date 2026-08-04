@@ -1,8 +1,26 @@
 import { computed, Injectable, signal } from '@angular/core';
 
+const STORAGE_KEY = 'favorite-paths';
+
+function initialPaths(): ReadonlySet<string> {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (!stored) {
+    return new Set();
+  }
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    if (Array.isArray(parsed) && parsed.every((value) => typeof value === 'string')) {
+      return new Set(parsed);
+    }
+  } catch {
+    // malformed JSON — fall through to an empty set below
+  }
+  return new Set();
+}
+
 @Injectable({ providedIn: 'root' })
 export class Favorites {
-  private readonly paths = signal<ReadonlySet<string>>(new Set());
+  private readonly paths = signal<ReadonlySet<string>>(initialPaths());
 
   readonly all = computed(() => Array.from(this.paths()));
 
