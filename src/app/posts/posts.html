@@ -51,7 +51,7 @@
     <aside class="preview" aria-label="Post preview" aria-live="polite">
       <h3>{{ post.title }}</h3>
       <p>{{ post.body }}</p>
-      <p class="reading-time">{{ readingMinutes() }} min read</p>
+      <p class="reading-time">{{ post.body | readingTime }}</p>
     </aside>
   }
 }
