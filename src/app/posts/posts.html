@@ -13,8 +13,22 @@
     <button type="button" (click)="retry()">Retry</button>
   </p>
 } @else {
+  <label class="search-field">
+    <span>Search posts</span>
+    <input
+      type="search"
+      [value]="query()"
+      (input)="onQueryInput($event)"
+      placeholder="Filter by title…"
+    />
+  </label>
+
+  @if (query().trim() && filteredPosts().length === 0) {
+    <p class="empty">No posts match "{{ query() }}".</p>
+  }
+
   <ul class="posts-list">
-    @for (post of postsResource.value(); track post.id) {
+    @for (post of filteredPosts(); track post.id) {
       <li appRowHighlight [class.selected]="selectedPostId() === post.id">
         <h3>
           <a [routerLink]="['/posts', post.id]">{{ post.title }}</a>
