@@ -1230,3 +1230,53 @@ code. Flipping the theme is then one attribute write
 own cascade propagates everywhere a variable is used — no Angular
 involvement needed for the actual repaint, and no per-component style
 binding to keep in sync as new components get added.
+
+## 2026-08-04 — Favorites survives a reload: the same hydrate/persist shape, reused
+
+`Favorites` had an obvious gap since the day it was written: star a page,
+reload the tab, the star is gone. `ThemePreference` had just solved this
+exact problem for a single string, so `Favorites` reuses the same two-part
+shape — a plain function that computes the signal's initial value by
+reading `localStorage` at construction time, plus an `effect()` in the
+constructor that writes back out on every change — rather than inventing
+a different persistence pattern for what's structurally the same problem
+one type up (a `Set<string>` instead of a single string):
+
+```ts
+function initialPaths(): ReadonlySet<string> {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (!stored) return new Set();
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    if (Array.isArray(parsed) && parsed.every((v) => typeof v === 'string')) {
+      return new Set(parsed);
+    }
+  } catch {
+    // malformed JSON — fall through to an empty set below
+  }
+  return new Set();
+}
+```
+
+**Why the malformed-JSON guard matters here specifically:** `localStorage`
+is per-origin, unversioned, and editable by anything with page access —
+including whatever the previous version of this app wrote there before
+today's change existed at all. A `JSON.parse` that's allowed to throw
+during service construction would take down the entire app shell (this
+service is injected from `App` itself), not just the favorites feature —
+one bad or hand-edited value in devtools shouldn't be a hard crash. The
+`Array.isArray` + `every(typeof === 'string')` check is the same
+narrow-then-trust validation shape as `parsePosts`/`parsePost` in
+`post.ts`: don't trust an external value just because `JSON.parse`
+didn't throw.
+
+**Test isolation needed `localStorage.clear()` in both `beforeEach` and
+`afterEach`, and `TestBed.resetTestingModule()` before re-injecting:**
+`Favorites` is `providedIn: 'root'`, so once a test has called
+`TestBed.inject(Favorites)`, later calls in the same test return the
+_same_ instance — its `initialPaths()` already ran and won't re-read
+`localStorage` no matter what gets written to it afterward. The hydration
+tests need a fresh injector after seeding `localStorage`, which is what
+`TestBed.resetTestingModule()` forces; skipping it would silently test
+nothing, since the already-constructed singleton wouldn't notice the
+seeded value.
