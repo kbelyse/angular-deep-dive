@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 
 import { PostDetail } from './post-detail';
+import { Ratings } from '../../ratings';
 
 const POSTS_URL = 'https://jsonplaceholder.typicode.com/posts';
 
@@ -13,6 +14,8 @@ describe('PostDetail', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(async () => {
+    localStorage.clear();
+
     await TestBed.configureTestingModule({
       imports: [PostDetail],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
@@ -27,6 +30,7 @@ describe('PostDetail', () => {
 
   afterEach(() => {
     httpMock.verify();
+    localStorage.clear();
   });
 
   function nativeEl(): HTMLElement {
@@ -123,5 +127,29 @@ describe('PostDetail', () => {
     fixture.detectChanges();
 
     expect(nativeEl().querySelector('article h3')?.textContent).toContain('Second post');
+  });
+
+  it('should render an existing rating for this post from the Ratings service', async () => {
+    TestBed.inject(Ratings).set('1', 4);
+
+    httpMock.expectOne(`${POSTS_URL}/1`).flush({ id: 1, title: 'Rated post', body: 'Body.' });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const stars = nativeEl().querySelectorAll('app-star-rating button');
+    expect(stars[3].getAttribute('aria-pressed')).toBe('true');
+    expect(stars[4].getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('should persist a new rating into the Ratings service when a star is clicked', async () => {
+    httpMock.expectOne(`${POSTS_URL}/1`).flush({ id: 1, title: 'Rate me', body: 'Body.' });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const stars = nativeEl().querySelectorAll<HTMLButtonElement>('app-star-rating button');
+    stars[2].click();
+    fixture.detectChanges();
+
+    expect(TestBed.inject(Ratings).get('1')).toBe(3);
   });
 });
