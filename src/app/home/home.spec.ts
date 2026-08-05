@@ -17,6 +17,8 @@ describe('Home', () => {
   let favorites: Favorites;
 
   beforeEach(async () => {
+    localStorage.clear();
+
     await TestBed.configureTestingModule({
       imports: [Home],
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
@@ -27,6 +29,10 @@ describe('Home', () => {
     component = fixture.componentInstance;
     favorites = TestBed.inject(Favorites);
     fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
   });
 
   it('should create', () => {
@@ -69,6 +75,56 @@ describe('Home', () => {
     expect(compiled.querySelector('[role="tabpanel"]')?.textContent).toContain(
       'running log of Angular concepts',
     );
+  });
+
+  describe('clear all favorites', () => {
+    beforeEach(() => {
+      favorites.toggle('/counter');
+      favorites.toggle('/feedback');
+      fixture.detectChanges();
+    });
+
+    function nativeEl(): HTMLElement {
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    it('should not show a confirm dialog until the button is clicked', () => {
+      expect(nativeEl().querySelector('.dialog')).toBeNull();
+    });
+
+    it('should open a confirm dialog when Clear all favorites is clicked', () => {
+      (nativeEl().querySelector('.clear-favorites') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      expect(nativeEl().querySelector('#confirm-dialog-message')?.textContent).toContain(
+        "Remove every favorited page?",
+      );
+    });
+
+    it('should keep every favorite if the dialog is cancelled', () => {
+      (nativeEl().querySelector('.clear-favorites') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const [cancel] = nativeEl().querySelectorAll<HTMLButtonElement>('.dialog button');
+      cancel.click();
+      fixture.detectChanges();
+
+      expect(nativeEl().querySelector('.dialog')).toBeNull();
+      expect(favorites.all()).toEqual(['/counter', '/feedback']);
+    });
+
+    it('should clear every favorite once confirmed', () => {
+      (nativeEl().querySelector('.clear-favorites') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const [, confirm] = nativeEl().querySelectorAll<HTMLButtonElement>('.dialog button');
+      confirm.click();
+      fixture.detectChanges();
+
+      expect(nativeEl().querySelector('.dialog')).toBeNull();
+      expect(favorites.all()).toEqual([]);
+      expect(nativeEl().querySelector('.empty')?.textContent).toContain('Nothing favorited yet');
+    });
   });
 
   describe('recent posts defer block', () => {
