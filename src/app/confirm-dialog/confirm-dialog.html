@@ -1,0 +1,20 @@
+@if (open()) {
+  <div class="backdrop" (click)="cancel()">
+    <div
+      class="dialog"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="confirm-dialog-message"
+      (click)="$event.stopPropagation()"
+      (keydown)="onKeydown($event)"
+    >
+      <p id="confirm-dialog-message">{{ message() }}</p>
+      <div class="actions">
+        <button #focusable type="button" (click)="cancel()">{{ cancelLabel() }}</button>
+        <button #focusable type="button" class="danger" (click)="confirm()">
+          {{ confirmLabel() }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
