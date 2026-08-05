@@ -84,6 +84,20 @@ describe('App', () => {
     expect(button.getAttribute('aria-pressed')).toBe(String(themePreference.current() === 'dark'));
   });
 
+  it('should render a skip link as the first focusable element, pointing at #main-content', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const skipLink = compiled.querySelector('a.skip-link') as HTMLAnchorElement;
+    const main = compiled.querySelector('main');
+
+    expect(skipLink).toBeTruthy();
+    expect(skipLink.getAttribute('href')).toBe('#main-content');
+    expect(main?.id).toBe('main-content');
+    expect(compiled.querySelectorAll('a, button')[0]).toBe(skipLink);
+  });
+
   it('should show the loading bar only while a request is pending', () => {
     const fixture = TestBed.createComponent(App);
     const httpLoading = TestBed.inject(HttpLoading);
