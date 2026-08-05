@@ -46,6 +46,15 @@ describe('Favorites', () => {
     expect(favorites.all()).toEqual(['/feedback']);
   });
 
+  it('should clear every favorited path', () => {
+    favorites.toggle('/counter');
+    favorites.toggle('/feedback');
+
+    favorites.clear();
+
+    expect(favorites.all()).toEqual([]);
+  });
+
   it('should hydrate its initial state from localStorage', () => {
     localStorage.setItem('favorite-paths', JSON.stringify(['/counter', '/feedback']));
     TestBed.resetTestingModule();
