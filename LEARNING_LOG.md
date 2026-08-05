@@ -1433,3 +1433,62 @@ placed anywhere else in the DOM wouldn't be wrong exactly, but it
 wouldn't do its job either, since the whole point is being reachable with
 a single Tab press from a fresh page load, before the header's own nav
 links.
+
+## 2026-08-05 — `InjectionToken` to stop hardcoding the API host three times
+
+**`Posts`, `PostDetail`, and `RecentPosts` each had their own module-level
+`const POSTS_URL = 'https://jsonplaceholder.typicode.com/...'`** — three
+copies of the same host, differing only in path and query string. Not a
+bug today, but the same "two places that can quietly drift" shape as the
+duplicated reading-time math from 08-04, one layer up: swapping API
+providers, or pointing a staging build at a different host, would mean
+finding and editing three separate string literals and hoping none were
+missed.
+
+```ts
+// api-base-url.ts
+export const API_BASE_URL = new InjectionToken<string>('API_BASE_URL', {
+  providedIn: 'root',
+  factory: () => 'https://jsonplaceholder.typicode.com',
+});
+```
+
+```ts
+// posts.ts
+private readonly apiBaseUrl = inject(API_BASE_URL);
+
+protected readonly postsResource = httpResource<Post[]>(
+  () => `${this.apiBaseUrl}/posts?_limit=10`,
+  { defaultValue: [], parse: parsePosts },
+);
+```
+
+**`providedIn: 'root'` with a `factory`, on a plain `InjectionToken` this
+time, not a `@Injectable` class:** every service so far (`Favorites`,
+`ThemePreference`, `HttpLoading`, `SelectivePreloadingStrategy`) has been
+a class DI resolves by its own type. A token is the mechanism for
+injecting something that isn't a class at all — here, a `string` — and
+`factory` is what makes it behave like `providedIn: 'root'` normally
+does: resolved lazily, once, the first time anything asks for it, with no
+`providers: [{ provide: API_BASE_URL, useValue: ... }]` entry required in
+`app.config.ts` just to get the default.
+
+**`inject(API_BASE_URL)` has to happen in a field initializer, not inside
+the arrow function passed to `httpResource`:** field initializers run
+during construction, inside Angular's injection context, exactly like a
+constructor body — confirmed this actually matters by trying `inject()`
+directly inside the `() => \`${API_BASE_URL}/posts\`` arrow first; it
+still compiled (arrow functions don't visibly announce they're the wrong
+scope) but would only actually work if invoked synchronously during
+construction, which `httpResource`'s URL function explicitly isn't — it
+re-runs later, outside any injection context, same category of mistake as
+calling `inject()` from inside a `setTimeout` callback.
+
+**Proved the override actually reaches the network call, not just that
+the token resolves to the right default:** a first test asserting
+`TestBed.inject(API_BASE_URL)` equals the real host would pass even if
+`Posts` had ignored the injected value entirely and kept a hardcoded
+`const`. The real test provides `{ provide: API_BASE_URL, useValue:
+'https://example.test/api' }` and asserts `httpMock.expectOne` sees a
+request against *that* host — the only way to actually distinguish "the
+token exists" from "the component reads it."
