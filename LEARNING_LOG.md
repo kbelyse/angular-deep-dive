@@ -1388,3 +1388,48 @@ usage in the template, is the kind of change that's easy to skip because
 it "already works" — but the duplicate logic was a bug waiting for
 `PostDetail`'s copy to drift from `Posts`' copy the next time either one
 changed.
+
+## 2026-08-05 — A skip-to-content link, the accessibility gap oldest in the app
+
+**A genuinely missing piece since 07-20, not a new feature:** every page
+already has a proper `<h1>`, ARIA-labeled nav, and live regions, but a
+keyboard user landing on any page still had to tab through the entire
+header — five nav links plus two toggle buttons — before reaching the
+actual page content. A skip link is the standard fix, and it was worth
+building for real instead of assuming the rest of the accessibility work
+covered it:
+
+```html
+<a class="skip-link" href="#main-content">Skip to main content</a>
+...
+<main id="main-content" tabindex="-1">
+  <router-outlet />
+</main>
+```
+
+`tabindex="-1"` on `<main>` matters as much as the link itself: without
+it, activating the link only scrolls the page (the browser's native
+fragment-navigation behavior) but leaves focus wherever it already was —
+a sighted mouse user wouldn't notice, but a keyboard user gets no actual
+focus jump, just a visual scroll, and the next Tab press would resume
+from the old position in the header. `tabindex="-1"` makes `<main>`
+programmatically focusable (not part of the normal Tab order — that's
+what `-1` specifically means, versus `0`) so the browser's built-in
+fragment-focus behavior has somewhere real to land.
+
+**Visually-hidden-until-focused is a different pattern from the
+`.visually-hidden` class used everywhere else in this app (07-21's count
+announcer, 08-04's search-results announcement):** those exist purely for
+screen readers and should never become visible. A skip link is for sighted
+keyboard users too — someone tabbing through the page needs to *see* it
+appear to know it's there. So it gets its own `.skip-link` rule
+(`position: absolute; top: -3rem`, slid to `top: 0.5rem` on
+`:focus-visible`) instead of reusing `.visually-hidden`, which has no
+focus-triggered visible state at all.
+
+**Testing asserted it's the *first* focusable element, not just that it
+exists:** `compiled.querySelectorAll('a, button')[0]` — a skip link
+placed anywhere else in the DOM wouldn't be wrong exactly, but it
+wouldn't do its job either, since the whole point is being reachable with
+a single Tab press from a fresh page load, before the header's own nav
+links.
