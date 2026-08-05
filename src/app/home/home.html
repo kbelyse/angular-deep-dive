@@ -10,9 +10,21 @@
       </li>
     }
   </ul>
+  <button type="button" class="clear-favorites" (click)="requestClear()">
+    Clear all favorites
+  </button>
 } @else {
   <p class="empty">Nothing favorited yet — use the star button in the header on any page.</p>
 }
+
+<app-confirm-dialog
+  [open]="confirmingClear()"
+  message="Remove every favorited page? This can't be undone."
+  confirmLabel="Clear all"
+  cancelLabel="Keep them"
+  (confirmed)="confirmClear()"
+  (cancelled)="cancelClear()"
+/>
 
 <h3>Learn more</h3>
 <app-tabs label="Learn more about this app">
