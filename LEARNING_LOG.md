@@ -1760,3 +1760,80 @@ what looked at first like one flaky test file: `runOutsideAngular` for
 the zone-stability hang, timer-installation order for the interval to
 respond to fake time at all, and `advanceTimersByTimeAsync` in place of
 `whenStable` once fake timers were active from construction onward.
+
+## 2026-08-05 — `model()`: this app's first true two-way-bound component
+
+**`input()`/`output()` (07-21) has covered every parent↔child interaction
+so far — `CounterButton`'s `label`/`pressed`, `Tab`'s content-projected
+instances. `StarRating` is the first case that's genuinely two-way: a
+click inside the child needs to both update the child's own rendered
+state *and* tell the parent what the new value is, and the parent needs
+to be able to set an initial value in.** Doing that with plain
+`input()`/`output()` means hand-rolling the mirroring yourself — an
+`input()` for the incoming value, a local `signal()` copy the template
+actually renders, an `effect()` to resync the copy whenever the input
+changes, and an `output()` to announce a change. `model()` collapses all
+of that into one declaration:
+
+```ts
+readonly value = model(0);
+
+protected rate(star: number): void {
+  this.value.set(star);
+}
+```
+
+One `model()` field is simultaneously: a writable signal the template
+reads (`value()`), an input the parent can bind into (`[value]="..."`),
+and an output the parent can listen to (`(valueChange)="..."`) — the
+`Change` suffix is a compiler convention, not something written by hand,
+the same way `formRoot`/`formField` (07-24) hide their own wiring behind
+one declaration instead of several.
+
+**Consumed unsugared in `PostDetail` — `[value]` + `(valueChange)`
+separately, not the `[(value)]` two-way shorthand — because the parent
+needs to intercept the change, not just mirror it into a matching local
+signal:**
+
+```html
+<app-star-rating [value]="rating()" (valueChange)="onRatingChange($event)" label="Rate this post" />
+```
+
+```ts
+protected readonly rating = computed(() => {
+  if (!this.postResource.hasValue()) return 0;
+  return this.ratings.get(String(this.postResource.value().id));
+});
+
+protected onRatingChange(value: number): void {
+  if (this.postResource.hasValue()) {
+    this.ratings.set(String(this.postResource.value().id), value);
+  }
+}
+```
+
+Same shape as `App`/`Favorites` since 07-27: `rating` isn't a mirrored
+copy of service state, it's a `computed()` reading the `Ratings` service
+directly, and a click writes straight back into the service — `PostDetail`
+never owns "the current rating" as its own state, only as a lens onto
+`Ratings`. `[(value)]="someLocalSignal"` would have been the right call
+if `PostDetail` had nothing to do with the value beyond holding it; it
+doesn't, so the unsugared two-property form is the more honest one here.
+
+**`Ratings` is `Favorites`' hydrate/persist shape (07-28), generalized
+from a `Set<string>` to a `Map<string, number>`, not a new pattern
+invented from scratch:** same "read `localStorage` once at construction,
+`effect()` writes back on every change" structure, same
+narrow-then-trust JSON validation before accepting stored data (this
+time also checking each value falls inside `1`–`5`, not just checking
+it's a number — a corrupted or hand-edited `9` in devtools shouldn't
+silently render as five overflowing filled stars).
+
+**Testing a `model()` field's output side works exactly like testing a
+plain `output()` — `component.value.subscribe(spy)`:** confirmed by
+checking the type: `ModelSignal<T>` extends both `WritableSignal<T>` and
+`OutputRef<T>`, so the same object is simultaneously call-to-read
+(`value()`) and `.subscribe()`-to-observe-changes, which is what makes a
+single field able to satisfy both the input and output halves of the
+generated `[value]`/`(valueChange)` pair without two separate class
+members.
