@@ -1837,3 +1837,80 @@ checking the type: `ModelSignal<T>` extends both `WritableSignal<T>` and
 single field able to satisfy both the input and output halves of the
 generated `[value]`/`(valueChange)` pair without two separate class
 members.
+
+## 2026-08-05 — A hand-built `ConfirmDialog`: focus trap, Escape, and a real flaky-test bug it exposed in an unrelated file
+
+**Built a reusable confirmation modal from scratch — role, focus
+management, and keyboard handling all manual — rather than reaching for
+the native `<dialog>` element's `showModal()`.** `<dialog>` would have
+gotten focus trapping and top-layer stacking for free, but the point
+today was building the mechanism, not just using a browser API that
+hides it. Wired it into `Home` as a guard in front of `Favorites.clear()`
+— a genuinely destructive, irreversible action (07-28's `Favorites`
+persists to `localStorage`; clearing it has no undo) that had no
+confirmation step until now:
+
+```ts
+constructor() {
+  effect(() => {
+    if (this.open()) {
+      this.lastFocused = document.activeElement as HTMLElement | null;
+      this.focusable()[0]?.nativeElement.focus();
+    } else {
+      this.lastFocused?.focus();
+    }
+  });
+}
+```
+
+**Three responsibilities, three separate mechanisms, deliberately not
+folded into one:** (1) an `effect()` watching the `open` input moves
+focus in when the dialog appears and restores it to whatever had focus
+before (captured via `document.activeElement`, same technique as
+`App`'s `currentPath` tracking, applied to focus instead of routing) —
+without this, closing the dialog would silently strand focus on a
+button that no longer exists in the DOM, or reset it to `<body>`. (2) a
+`(keydown)` handler wraps `Tab`/`Shift+Tab` between the two buttons —
+`viewChildren<ElementRef<HTMLButtonElement>>('focusable')`, the exact
+query shape `Tabs` (07-30) already established for reaching into a
+component's own template-rendered elements. (3) `Escape` and a backdrop
+click both call `cancel()`, but the backdrop's own click handler needs
+`(click)="$event.stopPropagation()"` on the inner `.dialog` div, or
+every click *inside* the dialog would bubble up and also trigger the
+backdrop's cancel — the same "which element actually receives this
+event" reasoning as `RowHighlight`'s `focusin`/`focusout` choice back on
+07-28, just for click bubbling instead of focus delegation.
+
+**`role="alertdialog"`, not `role="dialog"`:** the WAI-ARIA distinction
+is specifically for dialogs demanding an urgent response before anything
+else can proceed — a destructive confirmation is the canonical case,
+whereas a plain `dialog` role fits something more like a settings panel.
+Paired with `aria-labelledby` pointing at the message paragraph itself
+rather than a separate visually-hidden title, since the message *is* the
+dialog's whole reason for existing here.
+
+**The real find of the day: adding tests that toggle `Favorites` twice
+per test, several times in one file, exposed a latent test-isolation bug
+that had nothing to do with `ConfirmDialog` itself.** `home.spec.ts` has
+called `favorites.toggle(...)` since 07-27 and never once cleared
+`localStorage` — every other spec file that touches a `providedIn:
+'root'` service backed by `localStorage` (`favorites.spec.ts`,
+`theme-preference.spec.ts`, today's `ratings.spec.ts`) does
+`localStorage.clear()` in `beforeEach`/`afterEach`, but `home.spec.ts`
+was never exercising `Favorites` heavily enough for the gap to matter —
+until four new tests in a row each toggled the same two paths. `Favorites`
+hydrates its initial state from real `localStorage` at construction
+(07-28), and its persistence `effect()` writes to that same real
+`localStorage` — not a per-test fake — so a previous test's toggles
+survived into the next test's *supposedly fresh* `Favorites` singleton,
+which then hydrated as already-favorited and promptly un-toggled itself
+back to empty the moment the new test's `beforeEach` tried to set it up.
+Symptom: `.clear-favorites` intermittently missing from the DOM,
+`Cannot read properties of null (reading 'click')` — and genuinely
+non-deterministic between runs, since which tests ran adjacently (and
+therefore which one polluted which) wasn't fixed. The fix is one line,
+`localStorage.clear()` in `beforeEach` (and `afterEach`, for the next
+file that runs), matching the convention this file should have had from
+the start. Confirmed fixed by running the suite five times in a row,
+not just once — a single green run doesn't prove a race condition is
+gone, only that it didn't fire *that* time.
