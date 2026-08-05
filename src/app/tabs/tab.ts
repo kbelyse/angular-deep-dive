@@ -1,9 +1,12 @@
 import { Component, computed, input, signal } from '@angular/core';
+import { RowHighlight } from '../row-highlight';
 
 let nextTabId = 0;
 
 @Component({
   selector: 'app-tab',
+  hostDirectives: [RowHighlight],
+  styleUrl: './tab.scss',
   template: `
     @if (active()) {
       <div role="tabpanel" [id]="panelId()" [attr.aria-labelledby]="tabId()" tabindex="0">
