@@ -1602,3 +1602,64 @@ different runtime behavior, so the same "dispatch a real event, assert on
 a real class" style proves it works exactly like `RowHighlight` applied
 the old way, just attached to a component's own host instead of an
 `<li>`.
+
+## 2026-08-05 — `canDeactivate`: warning before leaving a dirty Feedback form
+
+**A gap that only became visible once other routes existed to navigate
+*to*:** `Feedback` has had validation and a success message since 07-24,
+but nothing stopped someone from typing three paragraphs into the message
+field and then clicking "Posts" in the nav — losing everything, no
+warning, same category of "the accessibility gap that was always there"
+as this morning's skip link. `canDeactivate` is the router's hook for
+exactly this: a guard that runs *before* leaving the currently-active
+route, mirroring `postIdGuard`'s `canActivate` (07-29) but on the way
+out instead of the way in.
+
+```ts
+// unsaved-feedback.guard.ts
+export const unsavedFeedbackGuard: CanDeactivateFn<Feedback> = (component) => {
+  if (!component.hasUnsavedChanges()) {
+    return true;
+  }
+  return window.confirm('You have unsaved changes. Leave this page?');
+};
+```
+
+**`CanDeactivateFn<Feedback>` hands the guard the actual component
+instance being navigated away from, not just route metadata** —
+`CanActivateFn` (used by `postIdGuard`) only ever sees an
+`ActivatedRouteSnapshot`, because there's no component instance yet on
+the way in. This is the one guard type that's inherently tied to a
+specific component's runtime state, which is also why it needs a public
+`hasUnsavedChanges()` method on `Feedback` — a guard living in its own
+file, imported separately, can't reach a `protected` member the way a
+method on the class itself could.
+
+**`feedbackForm().dirty()`, not a hand-rolled "has anything changed"
+flag:** Signal Forms already tracks `dirty` as part of `FieldState`
+(mentioned but not exercised back in 07-24's note about `reset()`
+clearing both `touched` and `dirty`). Reusing it here means the guard
+automatically agrees with the form about what counts as "unsaved" — type
+something then delete it back to empty and `dirty` still reads `true`
+(the value differs from its last-committed baseline, not from `''`
+specifically), which matches user expectation better than a naive
+"is `message` non-empty" check would.
+
+**`window.confirm`, not a custom modal, and that's a deliberate scope
+choice, not a placeholder:** a router guard runs synchronously (or
+returns a `Promise`/`Observable` for async cases) and blocking synchronously
+on user input is exactly what the native confirm dialog is for — no
+`ConfirmDialog` component, no extra route state to manage for "should the
+confirmation UI be open." Worth revisiting only if this app ever needs a
+themeable or testable-without-mocking-`window` confirmation flow; for a
+single yes/no gate on navigation, reaching for a component would be
+solving a problem that doesn't exist yet.
+
+**Testing the guard needed a fake `Feedback`, not a real component
+instance:** `{ hasUnsavedChanges: () => dirty } as Feedback` — the guard
+only ever calls that one method, so standing up a full `TestBed` fixture
+with Signal Forms wiring just to flip `dirty` would be testing far more
+than the guard's own logic. `vi.spyOn(window, 'confirm').mockReturnValue(...)`
+covers both branches of the user's actual choice — same "test both
+outcomes, not just the happy path" instinct as `SelectivePreloadingStrategy`'s
+own two tests.
