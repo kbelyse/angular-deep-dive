@@ -59,4 +59,14 @@ describe('Tab', () => {
     expect(panel.id).toBe(tab.panelId());
     expect(panel.getAttribute('aria-labelledby')).toBe(tab.tabId());
   });
+
+  it('should pick up the highlighted class on its own host via the composed RowHighlight', () => {
+    const host = fixture.debugElement.children[0].nativeElement as HTMLElement;
+    expect(host.classList.contains('highlighted')).toBe(false);
+
+    host.dispatchEvent(new MouseEvent('mouseenter'));
+    fixture.detectChanges();
+
+    expect(host.classList.contains('highlighted')).toBe(true);
+  });
 });
