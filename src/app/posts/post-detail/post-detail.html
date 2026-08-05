@@ -17,6 +17,11 @@
   <article>
     <h3>{{ postResource.value().title }}</h3>
     <p class="reading-time">{{ postResource.value().body | readingTime }}</p>
+    <app-star-rating
+      [value]="rating()"
+      (valueChange)="onRatingChange($event)"
+      label="Rate this post"
+    />
     <p class="body">{{ postResource.value().body }}</p>
   </article>
 }
