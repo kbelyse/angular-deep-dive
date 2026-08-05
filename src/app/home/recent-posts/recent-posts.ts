@@ -1,8 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { httpResource } from '@angular/common/http';
+import { API_BASE_URL } from '../../api-base-url';
 import { Post, parsePosts } from '../../post';
-
-const RECENT_POSTS_URL = 'https://jsonplaceholder.typicode.com/posts?_limit=3';
 
 @Component({
   selector: 'app-recent-posts',
@@ -11,8 +10,10 @@ const RECENT_POSTS_URL = 'https://jsonplaceholder.typicode.com/posts?_limit=3';
   styleUrl: './recent-posts.scss',
 })
 export class RecentPosts {
-  protected readonly postsResource = httpResource<Post[]>(() => RECENT_POSTS_URL, {
-    defaultValue: [],
-    parse: parsePosts,
-  });
+  private readonly apiBaseUrl = inject(API_BASE_URL);
+
+  protected readonly postsResource = httpResource<Post[]>(
+    () => `${this.apiBaseUrl}/posts?_limit=3`,
+    { defaultValue: [], parse: parsePosts },
+  );
 }

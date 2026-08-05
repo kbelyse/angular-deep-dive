@@ -1,13 +1,12 @@
-import { Component, computed, linkedSignal, signal } from '@angular/core';
+import { Component, computed, inject, linkedSignal, signal } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { debounceTime } from 'rxjs';
+import { API_BASE_URL } from '../api-base-url';
 import { ReadingTime } from '../reading-time';
 import { RowHighlight } from '../row-highlight';
 import { Post, parsePosts } from '../post';
-
-const POSTS_URL = 'https://jsonplaceholder.typicode.com/posts?_limit=10';
 
 @Component({
   selector: 'app-posts',
@@ -16,10 +15,12 @@ const POSTS_URL = 'https://jsonplaceholder.typicode.com/posts?_limit=10';
   styleUrl: './posts.scss',
 })
 export class Posts {
-  protected readonly postsResource = httpResource<Post[]>(() => POSTS_URL, {
-    defaultValue: [],
-    parse: parsePosts,
-  });
+  private readonly apiBaseUrl = inject(API_BASE_URL);
+
+  protected readonly postsResource = httpResource<Post[]>(
+    () => `${this.apiBaseUrl}/posts?_limit=10`,
+    { defaultValue: [], parse: parsePosts },
+  );
 
   protected readonly query = signal('');
 
