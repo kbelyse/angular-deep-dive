@@ -1663,3 +1663,100 @@ than the guard's own logic. `vi.spyOn(window, 'confirm').mockReturnValue(...)`
 covers both branches of the user's actual choice — same "test both
 outcomes, not just the happy path" instinct as `SelectivePreloadingStrategy`'s
 own two tests.
+
+## 2026-08-05 — `interval` + `takeUntilDestroyed`, and a real bug it exposed in the zone
+
+**Added a "Last updated" readout to `Posts` that ticks every second** —
+"Updated just now" → "Updated 12s ago" → eventually "Updated 2m ago" — a
+plain `Date.now()`-diffing display, refreshed by a live `setInterval`
+rather than only recomputing when something else happens to trigger
+change detection. Every other timer-ish thing in this app so far
+(debounced search from 08-04, the router-driven `currentPath` in `App`)
+uses `toObservable`/`toSignal`, which handles its own unsubscription
+automatically once the calling context is destroyed. This is a
+genuinely different shape: a *sink*, not a source — the interval doesn't
+produce a value the component reads, it performs a side effect
+(`this.now.set(Date.now())`) — so it's a manual `.subscribe()`, and a
+manual subscription needs manual cleanup:
+
+```ts
+interval(1000)
+  .pipe(takeUntilDestroyed())
+  .subscribe(() => this.now.set(Date.now()));
+```
+
+`takeUntilDestroyed()` called with no arguments has to run inside an
+injection context (the constructor, same requirement as `inject()`
+itself) — it silently grabs the current `DestroyRef` and completes the
+source when the component is destroyed, which is the whole point: no
+`ngOnDestroy()`, no manually-held `Subscription` to `.unsubscribe()` by
+hand.
+
+**Ran the whole test suite after wiring this up and three unrelated
+`Posts` tests — the debounced-search ones — hung for the full 10-second
+hook timeout, not just failed.** Not a flaky timing issue: an active,
+never-completing `interval()` subscription inside Angular's zone means
+`NgZone` never reports zero pending tasks, because a live `setInterval`
+counts as an outstanding macrotask for as long as it's scheduled — which,
+for this interval, is forever (nothing ever unsubscribes it during a
+normal test run; `takeUntilDestroyed` only fires on component destruction,
+which the test suite never triggers). `fixture.whenStable()` waits for
+exactly that zero-pending-tasks signal, so any test in the file awaiting
+it — even one that has nothing to do with the ticking readout — hangs.
+The fix is `NgZone.runOutsideAngular()`:
+
+```ts
+private readonly ngZone = inject(NgZone);
+
+constructor() {
+  this.ngZone.runOutsideAngular(() => {
+    interval(1000).pipe(takeUntilDestroyed()).subscribe(() => this.now.set(Date.now()));
+  });
+  ...
+}
+```
+
+Tasks scheduled inside that callback aren't tracked by Angular's zone at
+all, so they can no longer block `whenStable()`. `this.now.set(...)`
+still works correctly from outside the zone — signal writes notify their
+own dependents and schedule a change-detection pass through Angular's own
+internal scheduler, independent of zone patching, which is part of what
+signals were built to enable in the first place. This is the single most
+consequential lesson from today: a periodic timer that never completes
+is exactly the kind of thing that has to be deliberately kept out of the
+zone, and the way to find that out is usually "a test that has nothing
+to do with the feature mysteriously hangs," not a docs page.
+
+**Testing the actual ticking needed its own, wholly separate `TestBed`
+setup — not a nested `describe` inside the existing `Posts` suite —
+because of an ordering constraint that isn't obvious until you hit it:**
+`vi.useFakeTimers()` does not retroactively convert an already-running
+real `setInterval` into a fake one. The existing debounce tests (08-04)
+get away with installing fake timers *after* the component is created,
+because `debounceTime`'s timer doesn't exist yet at that point — it's
+created fresh on the next keystroke, by which time fake timers are
+already active. This interval is different: it's created once, in the
+constructor, the moment the component exists. Installing fake timers
+afterward (first attempt) left the interval running on real wall-clock
+time regardless of `vi.advanceTimersByTime()`, and every assertion read
+back "Updated just now" no matter how far the fake clock was advanced.
+The fix was calling `vi.useFakeTimers()` *before* `TestBed.createComponent(Posts)`,
+in a dedicated `describe` block with its own `beforeEach`.
+
+**That reordering then broke resource resolution, for a genuinely
+different reason than the zone hang above:** with fake timers active
+from the start, `await fixture.whenStable()` after `httpMock.flush(...)`
+hung again — a second, unrelated hang, since by this point the interval
+itself was already safely outside the zone. `httpResource` apparently
+settles its internal state through work that a from-the-start fake clock
+never lets run (own note from 07-28: reading `.value()` needs a real turn
+of the loop after `flush()`, not just a synchronous `detectChanges()`).
+The fix was replacing `whenStable()` with `await vi.advanceTimersByTimeAsync(0)`
+before `detectChanges()` — the async variant of `vi.advanceTimersByTime`
+that also drains microtasks between fake-timer callbacks, which is
+exactly the "let pending async work actually settle" primitive needed
+once real timers are off the table. Three separate, precise fixes for
+what looked at first like one flaky test file: `runOutsideAngular` for
+the zone-stability hang, timer-installation order for the interval to
+respond to fake time at all, and `advanceTimersByTimeAsync` in place of
+`whenStable` once fake timers were active from construction onward.
