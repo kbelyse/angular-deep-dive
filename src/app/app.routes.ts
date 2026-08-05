@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { unsavedFeedbackGuard } from './feedback/unsaved-feedback.guard';
 import { postIdGuard } from './posts/post-detail/post-id.guard';
 
 export const routes: Routes = [
@@ -16,6 +17,7 @@ export const routes: Routes = [
   {
     path: 'feedback',
     title: 'Feedback · Angular Deep Dive',
+    canDeactivate: [unsavedFeedbackGuard],
     loadComponent: () => import('./feedback/feedback').then((m) => m.Feedback),
   },
   {
