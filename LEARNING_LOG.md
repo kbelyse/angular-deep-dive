@@ -1550,3 +1550,55 @@ gets `vi.spyOn`-stubbed for the duration of the test, otherwise every run
 of the suite would print a deliberately-triggered fake error to the
 terminal, which would look like a real regression to anyone skimming test
 output.
+
+## 2026-08-05 — `hostDirectives`: composing `RowHighlight` into `Tab` instead of reapplying it
+
+**`RowHighlight` (07-28) has had exactly one consumer since it was
+built — `[appRowHighlight]` applied manually on each `<li>` in
+`posts.html`.** `Tab`'s host element (`<app-tab>`, always present in the
+DOM as projected content, whether or not its panel is currently showing)
+wants the identical hover/focus tracking behavior, and the naive move
+would be adding `appRowHighlight` as a second selector attribute
+alongside `app-tab`. That doesn't work here: `Tab` is a component with
+its own selector, and a component's host element can't also match a
+second component or take on a plain attribute selector the way a `<li>`
+can layer `appRowHighlight` on top of nothing. The Directive Composition
+API exists for exactly this — attaching a directive's full behavior
+(inputs, outputs, host bindings) to a component's own host, from inside
+the component's own decorator:
+
+```ts
+@Component({
+  selector: 'app-tab',
+  hostDirectives: [RowHighlight],
+  styleUrl: './tab.scss',
+  template: `...`,
+})
+export class Tab { ... }
+```
+
+**Nothing in `RowHighlight` itself changed — it doesn't know or care
+whether it's applied via a template attribute or `hostDirectives`.** Same
+directive, same `(focusin)`/`(focusout)`/`(mouseenter)`/`(mouseleave)`
+host bindings, same `[class.highlighted]`, just attached differently.
+That's the actual point being demonstrated: a directive built once
+against a plain "any host element" contract can be reused as a
+building block for a component's own host behavior, not only as
+something a template author bolts on externally.
+
+**Styling reached the composed class via `:host(.highlighted)`, not a
+plain `.highlighted` selector:** `RowHighlight` toggles `class.highlighted`
+on `Tab`'s own host element (`<app-tab>`), and under `ViewEncapsulation.Emulated`
+a component's stylesheet can only style its own host via the `:host(...)`
+pseudo-class — a bare `.highlighted { ... }` in `tab.scss` would never
+match, since encapsulation scopes selectors to elements *inside* the
+template, and the host itself is the one exception requiring the special
+selector.
+
+**Tested by dispatching straight at the host `nativeElement`, the same
+DOM-event-only approach as `row-highlight.spec.ts` itself (07-28):** no
+new testing mechanism needed — `hostDirectives` is a wiring choice, not a
+different runtime behavior, so the same "dispatch a real event, assert on
+a real class" style proves it works exactly like `RowHighlight` applied
+the old way, just attached to a component's own host instead of an
+`<li>`.
