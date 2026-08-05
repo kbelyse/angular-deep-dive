@@ -38,4 +38,8 @@ export class Feedback {
       },
     },
   );
+
+  hasUnsavedChanges(): boolean {
+    return this.feedbackForm().dirty();
+  }
 }
