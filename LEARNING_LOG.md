@@ -1492,3 +1492,61 @@ the token resolves to the right default:** a first test asserting
 'https://example.test/api' }` and asserts `httpMock.expectOne` sees a
 request against *that* host — the only way to actually distinguish "the
 token exists" from "the component reads it."
+
+## 2026-08-05 — A global `ErrorHandler`, and why it doesn't replace `provideBrowserGlobalErrorListeners()`
+
+**Two separate error-handling mechanisms already sit side by side in
+`app.config.ts`, and today added a third piece rather than confusing it
+for either existing one:** `provideBrowserGlobalErrorListeners()` (there
+since 07-20) catches `window.onerror`/`unhandledrejection` — errors
+Angular's own zone never saw, like a rejected promise nobody awaited.
+`ErrorHandler` is Angular's own hook, invoked for errors thrown *during*
+change detection, template evaluation, or an event handler — the default
+implementation just `console.error`s them and moves on rather than
+crashing the app. Neither of those records anything anywhere queryable;
+today's `GlobalErrorHandler` sits inside the second mechanism, extending
+rather than replacing the default:
+
+```ts
+@Injectable()
+export class GlobalErrorHandler extends ErrorHandler {
+  private readonly errorLog = inject(ErrorLog);
+
+  override handleError(error: unknown): void {
+    this.errorLog.record(error);
+    super.handleError(error);
+  }
+}
+```
+
+**Same "service in between" split as `HttpLoading`/`loadingInterceptor`
+from 07-30, applied to a different pair:** `GlobalErrorHandler` doesn't
+own storage itself — it delegates to `ErrorLog`, a plain `providedIn:
+'root'` signal service, exactly so that anything else in the app (a
+future debug panel, a "report a bug" button that attaches recent errors)
+could read `errorLog.all()` without needing to know an `ErrorHandler`
+exists at all. `super.handleError(error)` at the end is the important
+line: overriding a class instead of writing a bare function is what makes
+"do my thing, then still do the original thing" a one-line call instead
+of having to reimplement the default's console logging by hand.
+
+**Registered via a provider token override, not `providedIn: 'root'` on
+the class itself:** `HttpLoading` and `ErrorLog` both self-register with
+`providedIn: 'root'` because anything can just `inject()` them directly.
+`ErrorHandler` doesn't work that way — Angular's internals ask the
+injector for the abstract `ErrorHandler` token specifically, so
+`GlobalErrorHandler` has to be wired in explicitly:
+`{ provide: ErrorHandler, useClass: GlobalErrorHandler }` in
+`app.config.ts`'s `providers` array, the same `provide`/`useClass` shape
+as the `API_BASE_URL` override in today's DI test, just permanent instead
+of test-only.
+
+**Tested by asking `TestBed` for the abstract token, not the concrete
+class:** `TestBed.inject(ErrorHandler)` after providing the override —
+proving the *replacement actually took*, the same category of check as
+08-04's `SelectivePreloadingStrategy` DI-wiring test, not just that
+`GlobalErrorHandler` works when instantiated directly. `console.error`
+gets `vi.spyOn`-stubbed for the duration of the test, otherwise every run
+of the suite would print a deliberately-triggered fake error to the
+terminal, which would look like a real regression to anyone skimming test
+output.
