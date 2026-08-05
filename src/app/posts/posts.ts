@@ -1,8 +1,8 @@
-import { Component, computed, inject, linkedSignal, signal } from '@angular/core';
-import { toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { Component, computed, effect, inject, linkedSignal, NgZone, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { httpResource } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
-import { debounceTime } from 'rxjs';
+import { debounceTime, interval } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url';
 import { ReadingTime } from '../reading-time';
 import { RowHighlight } from '../row-highlight';
@@ -16,11 +16,30 @@ import { Post, parsePosts } from '../post';
 })
 export class Posts {
   private readonly apiBaseUrl = inject(API_BASE_URL);
+  private readonly ngZone = inject(NgZone);
 
   protected readonly postsResource = httpResource<Post[]>(
     () => `${this.apiBaseUrl}/posts?_limit=10`,
     { defaultValue: [], parse: parsePosts },
   );
+
+  private readonly now = signal(Date.now());
+  private readonly lastFetchedAt = signal<number | null>(null);
+
+  protected readonly lastUpdatedLabel = computed(() => {
+    const fetchedAt = this.lastFetchedAt();
+    if (fetchedAt === null) {
+      return '';
+    }
+    const seconds = Math.max(0, Math.round((this.now() - fetchedAt) / 1000));
+    if (seconds < 5) {
+      return 'Updated just now';
+    }
+    if (seconds < 60) {
+      return `Updated ${seconds}s ago`;
+    }
+    return `Updated ${Math.round(seconds / 60)}m ago`;
+  });
 
   protected readonly query = signal('');
 
@@ -47,6 +66,20 @@ export class Posts {
   protected readonly selectedPost = computed(
     () => this.postsResource.value().find((post) => post.id === this.selectedPostId()) ?? null,
   );
+
+  constructor() {
+    this.ngZone.runOutsideAngular(() => {
+      interval(1000)
+        .pipe(takeUntilDestroyed())
+        .subscribe(() => this.now.set(Date.now()));
+    });
+
+    effect(() => {
+      if (this.postsResource.status() === 'resolved') {
+        this.lastFetchedAt.set(Date.now());
+      }
+    });
+  }
 
   protected select(id: number): void {
     this.selectedPostId.set(id);

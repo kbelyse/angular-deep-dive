@@ -1,5 +1,6 @@
 <h2>Posts</h2>
 <p>Fetched live from a public API using <code>httpResource</code>.</p>
+<p class="last-updated">{{ lastUpdatedLabel() }}</p>
 
 <p class="status" aria-live="polite" [attr.aria-busy]="postsResource.isLoading()">
   @if (postsResource.isLoading()) {
