@@ -34,6 +34,10 @@ export class Favorites {
     return this.paths().has(path);
   }
 
+  clear(): void {
+    this.paths.set(new Set());
+  }
+
   toggle(path: string): void {
     this.paths.update((current) => {
       const next = new Set(current);
