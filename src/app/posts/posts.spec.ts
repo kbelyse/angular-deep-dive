@@ -194,6 +194,23 @@ describe('Posts', () => {
     expect(nativeEl().querySelector('.reading-time')?.textContent).toBe('2 min read');
   });
 
+  it('should be empty before the first fetch resolves', () => {
+    expect(
+      (component as unknown as { lastUpdatedLabel: () => string }).lastUpdatedLabel(),
+    ).toBe('');
+    httpMock.expectOne(POSTS_URL).flush([]);
+  });
+
+  it('should read "Updated just now" immediately after the first fetch resolves', async () => {
+    httpMock.expectOne(POSTS_URL).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(
+      (component as unknown as { lastUpdatedLabel: () => string }).lastUpdatedLabel(),
+    ).toBe('Updated just now');
+  });
+
   describe('search filtering', () => {
     beforeEach(async () => {
       httpMock.expectOne(POSTS_URL).flush([
@@ -287,5 +304,52 @@ describe('Posts', () => {
       const region = nativeEl().querySelector('.visually-hidden[aria-live]');
       expect(region?.textContent).toBe('2 posts found.');
     });
+  });
+});
+
+describe('Posts last-updated readout, ticking', () => {
+  let fixture: ComponentFixture<Posts>;
+  let httpMock: HttpTestingController;
+
+  function label(): string {
+    return (
+      fixture.componentInstance as unknown as { lastUpdatedLabel: () => string }
+    ).lastUpdatedLabel();
+  }
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+
+    await TestBed.configureTestingModule({
+      imports: [Posts],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(Posts);
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+
+    httpMock.expectOne(POSTS_URL).flush([]);
+    await vi.advanceTimersByTimeAsync(0);
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+    vi.useRealTimers();
+  });
+
+  it('should count up in seconds as the interval ticks', () => {
+    vi.advanceTimersByTime(30_000);
+    fixture.detectChanges();
+
+    expect(label()).toBe('Updated 30s ago');
+  });
+
+  it('should switch to a minutes label past 60 seconds', () => {
+    vi.advanceTimersByTime(125_000);
+    fixture.detectChanges();
+
+    expect(label()).toBe('Updated 2m ago');
   });
 });
