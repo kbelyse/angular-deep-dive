@@ -32,20 +32,29 @@
 
   <ul class="posts-list">
     @for (post of filteredPosts(); track post.id) {
-      <li appRowHighlight [class.selected]="selectedPostId() === post.id">
-        <h3>
-          <a [routerLink]="['/posts', post.id]">{{ post.title }}</a>
-        </h3>
-        <p>{{ post.body }}</p>
-        <button
-          type="button"
-          class="preview-toggle"
-          [attr.aria-pressed]="selectedPostId() === post.id"
-          [attr.aria-label]="'Preview ' + post.title"
-          (click)="select(post.id)"
-        >
-          Preview
-        </button>
+      <li appRowHighlight [class.selected]="selectedPostId() === post.id" class="post-row">
+        <img
+          [ngSrc]="'https://picsum.photos/seed/' + post.id + '/80/80'"
+          width="80"
+          height="80"
+          alt=""
+          class="post-thumbnail"
+        />
+        <div class="post-content">
+          <h3>
+            <a [routerLink]="['/posts', post.id]">{{ post.title }}</a>
+          </h3>
+          <p>{{ post.body }}</p>
+          <button
+            type="button"
+            class="preview-toggle"
+            [attr.aria-pressed]="selectedPostId() === post.id"
+            [attr.aria-label]="'Preview ' + post.title"
+            (click)="select(post.id)"
+          >
+            Preview
+          </button>
+        </div>
       </li>
     }
   </ul>

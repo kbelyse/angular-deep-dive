@@ -1,6 +1,7 @@
 import { Component, computed, effect, inject, linkedSignal, NgZone, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { httpResource } from '@angular/common/http';
+import { NgOptimizedImage } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { debounceTime, interval } from 'rxjs';
 import { API_BASE_URL } from '../api-base-url';
@@ -10,7 +11,7 @@ import { Post, parsePosts } from '../post';
 
 @Component({
   selector: 'app-posts',
-  imports: [RowHighlight, RouterLink, ReadingTime],
+  imports: [RowHighlight, RouterLink, ReadingTime, NgOptimizedImage],
   templateUrl: './posts.html',
   styleUrl: './posts.scss',
 })
