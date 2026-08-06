@@ -319,6 +319,32 @@ describe('Posts', () => {
       expect(region?.textContent).toBe('2 posts found.');
     });
   });
+
+  describe('"/" search shortcut', () => {
+    beforeEach(async () => {
+      httpMock.expectOne(POSTS_URL).flush([]);
+      await fixture.whenStable();
+      fixture.detectChanges();
+    });
+
+    it('should focus the search input when "/" is pressed outside a text field', () => {
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '/', bubbles: true }));
+      fixture.detectChanges();
+
+      const input = nativeEl().querySelector('.search-field input');
+      expect(document.activeElement).toBe(input);
+    });
+
+    it('should not hijack "/" while already typing in the search input', () => {
+      const input = nativeEl().querySelector('.search-field input') as HTMLInputElement;
+      input.focus();
+
+      const event = new KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true });
+      input.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(false);
+    });
+  });
 });
 
 describe('Posts last-updated readout, ticking', () => {
