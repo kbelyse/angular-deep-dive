@@ -1,0 +1,5 @@
+<div class="toast-container" role="status" aria-live="polite">
+  @for (toast of toastQueue.all(); track toast.id) {
+    <p class="toast">{{ toast.message }}</p>
+  }
+</div>
