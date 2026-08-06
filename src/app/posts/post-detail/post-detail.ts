@@ -35,10 +35,12 @@ export class PostDetail {
   });
 
   constructor() {
-    const resolvedTitle = this.resolvedTitle();
-    if (resolvedTitle) {
-      this.documentTitle.setTitle(`${resolvedTitle} · Angular Deep Dive`);
-    }
+    effect(() => {
+      const resolvedTitle = this.resolvedTitle();
+      if (resolvedTitle) {
+        this.documentTitle.setTitle(`${resolvedTitle} · Angular Deep Dive`);
+      }
+    });
 
     effect(() => {
       if (this.postResource.hasValue()) {
