@@ -153,3 +153,34 @@ describe('PostDetail', () => {
     expect(TestBed.inject(Ratings).get('1')).toBe(3);
   });
 });
+
+describe('PostDetail resolved title', () => {
+  let fixture: ComponentFixture<PostDetail>;
+  let httpMock: HttpTestingController;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [PostDetail],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(PostDetail);
+    fixture.componentRef.setInput('id', '2');
+    fixture.componentRef.setInput('resolvedTitle', 'Resolved ahead of time');
+    fixture.detectChanges();
+
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  it('should set the document title from the resolved title, ahead of the full fetch', () => {
+    expect(TestBed.inject(Title).getTitle()).toBe('Resolved ahead of time · Angular Deep Dive');
+
+    httpMock
+      .expectOne(`${POSTS_URL}/2`)
+      .flush({ id: 2, title: 'Resolved ahead of time', body: 'Body.' });
+  });
+});
