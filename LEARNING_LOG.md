@@ -1914,3 +1914,42 @@ file that runs), matching the convention this file should have had from
 the start. Confirmed fixed by running the suite five times in a row,
 not just once — a single green run doesn't prove a race condition is
 gone, only that it didn't fire *that* time.
+
+## 2026-08-06 — `afterNextRender`: focus management that's safe by construction
+
+**Built `AutoFocus`, a one-line directive, and used it to focus
+`Feedback`'s name field on load** — a small but real UX gap: landing on
+`/feedback` previously required a click before typing anything.
+
+```ts
+constructor() {
+  afterNextRender(() => {
+    this.elementRef.nativeElement.focus();
+  });
+}
+```
+
+**Why not just call `.focus()` directly in the constructor, the way
+`ConfirmDialog` calls it from inside an `effect()` (yesterday)?**
+`ConfirmDialog`'s effect only ever runs client-side because the whole
+app only ever runs client-side right now — there's no SSR in this
+project. `afterNextRender` encodes that guarantee structurally rather
+than by circumstance: it's part of Angular's hydration-safe rendering
+API and is documented to run *only* in a browser context, never during
+server-side rendering, without the directive author having to reason
+about it. Reaching for it here isn't solving a problem this app
+currently has — it's the same "use the framework feature that already
+encodes the constraint" instinct as `formRoot`/`withComponentInputBinding`
+from previous entries, just for a constraint (no DOM on the server) this
+app hasn't hit yet but a reusable directive shouldn't assume away.
+
+**"Next render" means the very first render if registered during
+construction, confirmed by testing, not by reading the docs twice:**
+worried initially that `afterNextRender` registered in the constructor
+would skip the component's *own* first paint and only fire on some
+*later* render — the naming is easy to misread that way. A single
+`fixture.detectChanges()` was enough to move focus in the test, meaning
+"next" is relative to *whenever the callback is registered*, not to
+"the render that's already in flight." Registering during construction
+(before any render of this component has happened yet) makes the
+"next" one the first one.
