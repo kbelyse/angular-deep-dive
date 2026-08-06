@@ -1953,3 +1953,108 @@ would skip the component's *own* first paint and only fire on some
 "the render that's already in flight." Registering during construction
 (before any render of this component has happened yet) makes the
 "next" one the first one.
+
+## 2026-08-06 — `ResolveFn`: a route resolver, and two real bugs it took to get there
+
+**Built `postTitleResolver`, a `ResolveFn<string>` that fetches just a
+post's title before `/posts/:id` activates** — a genuinely different
+tool from everything routing-related so far. `postIdGuard` (`canActivate`,
+07-29) and `unsavedFeedbackGuard` (`canDeactivate`, 08-05) both decide
+*whether* navigation proceeds. A resolver decides *what data the route
+carries with it* once navigation is already happening:
+
+```ts
+export const postTitleResolver: ResolveFn<string> = (route) => {
+  const http = inject(HttpClient);
+  const apiBaseUrl = inject(API_BASE_URL);
+  const id = route.paramMap.get('id');
+  return http.get<{ title: string }>(`${apiBaseUrl}/posts/${id}`).pipe(map((post) => post.title));
+};
+```
+
+```ts
+{
+  path: 'posts/:id',
+  resolve: { resolvedTitle: postTitleResolver },
+  ...
+}
+```
+
+**Resolved data binds as a component input through the exact same
+mechanism as route params (07-29's `withComponentInputBinding()`), not
+through `ActivatedRoute.snapshot.data`:** `readonly resolvedTitle =
+input('')` on `PostDetail` just works, no injecting `ActivatedRoute` and
+reading `.data['resolvedTitle']` by hand. The resolver's key
+(`resolvedTitle`) has to match the input's name, same rule as `:id`
+matching `readonly id = input.required<string>()` — one more case of
+"the router hands the component inputs it already knows the shape of."
+
+**Honest tradeoff, stated plainly rather than glossed over:**
+`postResource` (the existing `httpResource` in `PostDetail`) still
+fetches the *entire* post separately — this resolver duplicates a
+request for data `postResource` will fetch again seconds later. That's
+a real, deliberate cost, accepted here to demonstrate the mechanism
+cleanly rather than restructure `PostDetail` around a single
+resolver-fed data source. A production app would likely pick one
+strategy, not both.
+
+**Bug one — `RouterTestingHarness.create()`'s promise doesn't let a
+resolver's HTTP request through until *after* a real async tick, not
+just a microtask, because the route is lazy (`loadComponent`):**
+`postIdGuard`'s and `unsavedFeedbackGuard`'s tests never hit this,
+because neither guard does async work of its own — this is the first
+router-level test needing to flush a request that fires *during*
+navigation itself, before the harness's promise settles. `await
+Promise.resolve()`, even three times in a row, still found no pending
+request; the dynamic `import()` behind `loadComponent` genuinely needs
+more than a microtask to resolve in this test environment. The fix,
+`vi.waitFor(() => httpMock.expectOne(url).flush(...))`, sidesteps
+guessing how many ticks are enough by retrying the assertion itself
+until it stops throwing:
+
+```ts
+const harnessPromise = RouterTestingHarness.create('/posts/1');
+await vi.waitFor(() => {
+  httpMock.expectOne('.../posts/1').flush({ id: 1, title: 'A post', body: 'Body text.' });
+});
+const harness = await harnessPromise;
+```
+
+**Bug two, more consequential: a component's constructor cannot assume
+a `componentRef.setInput()`-provided value — including a resolver's —
+is already applied when the constructor body runs.** First attempt read
+`this.resolvedTitle()` directly, synchronously, in the constructor. It
+compiled fine and *looked* identical to how `Favorites`/`ThemePreference`
+read their own state at construction — but it consistently produced an
+empty title in a from-scratch unit test that set the input before the
+first `detectChanges()`, the exact same call order every other input in
+this app already relies on. The reason: `TestBed.createComponent()`
+constructs the instance immediately; `setInput()` calls made afterward
+(even before the first `detectChanges()`) are only applied *during* that
+next change-detection run — meaning the constructor body has already
+finished executing by the time the value lands. This app had never hit
+it before because the only other constructor-synchronous input read
+(`id`, required) is only ever consumed *lazily*, inside `postResource`'s
+URL-producing function, which doesn't run until later. The fix is the
+same shape as the last two entries' fixes: don't read reactively-sourced
+state synchronously where timing is assumed — wrap it in `effect()`,
+which naturally re-runs once the value actually lands, the same
+reasoning as `resolvedTitle`'s sibling effect already watching
+`postResource.hasValue()`:
+
+```ts
+constructor() {
+  effect(() => {
+    const resolvedTitle = this.resolvedTitle();
+    if (resolvedTitle) {
+      this.documentTitle.setTitle(`${resolvedTitle} · Angular Deep Dive`);
+    }
+  });
+  effect(() => { /* postResource.hasValue() effect, unchanged */ });
+}
+```
+
+Router-bound inputs (`withComponentInputBinding()`) are implemented via
+this same `setInput()` mechanism, so this isn't just a testing quirk —
+it's the actual, general rule for *any* input a component might need to
+react to at construction time, resolver-sourced or not.
