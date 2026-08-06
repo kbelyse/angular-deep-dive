@@ -2058,3 +2058,56 @@ Router-bound inputs (`withComponentInputBinding()`) are implemented via
 this same `setInput()` mechanism, so this isn't just a testing quirk —
 it's the actual, general rule for *any* input a component might need to
 react to at construction time, resolver-sourced or not.
+
+## 2026-08-06 — `NgOptimizedImage`: an empty `alt`, and why decorative doesn't mean invisible to the layout
+
+**Added a small per-post thumbnail to `Posts`, seeded off each post's
+id so reloading the same post always shows the same image:**
+
+```html
+<img
+  [ngSrc]="'https://picsum.photos/seed/' + post.id + '/80/80'"
+  width="80"
+  height="80"
+  alt=""
+  class="post-thumbnail"
+/>
+```
+
+**`alt=""`, not a made-up description, and that's the correct choice,
+not a shortcut:** this image carries no information — JSONPlaceholder
+doesn't associate real photos with its posts, so the thumbnail is purely
+visual texture, decoration. WCAG's rule for decorative images is an
+*empty* `alt`, not an omitted one: a missing `alt` attribute is
+genuinely ambiguous to a screen reader (it may announce the filename or
+URL as a fallback), while `alt=""` is the explicit, correct signal
+"skip this, it carries no content." Writing something like "post
+thumbnail" would be worse than either — actively misleading, implying
+the image relates to the post's actual subject when it's just a seeded
+random photo.
+
+**`width`/`height` aren't styling — they're required by the directive,
+and they're what keeps `NgOptimizedImage` from being just a `src`
+rename:** `ngSrc` refuses to compile without them (a `NG02952`-class
+error the framework raises before the app can even build), because their
+whole purpose is letting the browser reserve the image's box in layout
+*before* the image has downloaded — the same fixed 80×80 the seeded URL
+itself requests, so the reserved space and the actual image agree
+exactly. Without them, a slow-loading image would cause everything below
+it to jump down the page the instant it finally rendered — this app's
+first real encounter with Cumulative Layout Shift as a named, directive-
+enforced concern rather than an abstract performance term.
+
+**Restructured `<li>` into a flex row (image + a `.post-content` wrapper)
+rather than dropping the `<img>` inline before the heading:** an `alt=""`
+image sitting directly in text flow next to a heading reads fine
+visually but awkwardly in markup terms — wrapping the text content
+separately keeps the two-column intent explicit in the DOM, not just
+implied by CSS `float`.
+
+**Tested against the rendered `<img>`'s real DOM properties
+(`.src`/`.width`/`.height`/`.alt`), not the `ngSrc` input:** `ngSrc` is
+consumed and compiled away into an actual `src` attribute by the
+directive — asserting on `img.src` (post-directive output) is what
+proves the directive did its job, the same reasoning as testing
+`RowHighlight`'s resulting `class`, not its internal signals.
