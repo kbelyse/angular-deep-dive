@@ -5,10 +5,11 @@ import { filter, map } from 'rxjs';
 import { Favorites } from './favorites';
 import { HttpLoading } from './http-loading';
 import { ThemePreference } from './theme-preference';
+import { ToastContainer } from './toast-container/toast-container';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ToastContainer],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
