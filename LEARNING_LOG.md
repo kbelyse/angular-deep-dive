@@ -2150,3 +2150,55 @@ that already covered the rendered title/body/reading-time continues to
 exercise the exact same rendered output. A refactor that changes test
 results would mean the refactor introduced a behavior change, which is
 exactly what re-running the suite is there to catch.
+
+## 2026-08-06 — A toast queue: the app's first transient, self-clearing announcement
+
+**Every `aria-live` region built so far — the count announcer (07-21),
+search results (08-04), loading bar (07-30) — announces *ongoing* state:
+it reflects something that's still true right now.** Confirming "Clear
+all favorites" (08-05) needed something different: a one-off
+acknowledgment ("Favorites cleared.") that's true the instant it fires
+and stale a few seconds later, with nothing else in the app holding a
+reference to it afterward. That's a queue with a lifetime, not a
+computed reflecting live state — the right shape for a small
+`ToastQueue` service, same `providedIn: 'root'` + signal shape as
+`Favorites`/`HttpLoading`, but owning entries that expire on their own:
+
+```ts
+show(message: string, durationMs = DEFAULT_DURATION_MS): void {
+  const id = this.nextId++;
+  this.toasts.update((current) => [...current, { id, message }]);
+  setTimeout(() => this.dismiss(id), durationMs);
+}
+```
+
+**Plain `setTimeout`, not `interval` + `takeUntilDestroyed`
+(yesterday), and not an oversight — a genuinely different lifetime
+question.** Yesterday's ticking readout needed cleanup because it lived
+inside a *component* that gets destroyed on navigation; a stray
+`setInterval` outliving its component is a real leak. `ToastQueue` is
+`providedIn: 'root'` — it never gets destroyed while the app is running,
+so there's no `DestroyRef` boundary to tie cleanup to in the first
+place. Each `setTimeout` is also inherently one-shot and self-clearing
+(it fires once, calls `dismiss`, and is done — nothing recurring to
+leak), unlike `interval`, which runs forever until something explicitly
+stops it. Reaching for `takeUntilDestroyed` here would have been
+solving a problem this code doesn't have.
+
+**`ToastContainer` reads the queue, `Home` writes to it — the two never
+talk to each other directly, same separation `HttpLoading` established
+between the interceptor that counts and `App` that renders (07-30):**
+`ToastContainer` mounted once in `App` doesn't know or care who calls
+`show()`; today it's `Home.confirmClear()`, but any future feature
+could queue a toast through the same service without `ToastContainer`
+changing at all.
+
+**Testing the auto-dismiss timer needed `vi.useFakeTimers()` installed
+in the outer `beforeEach`, unlike the debounce tests (08-04) that
+install it only inside a nested `describe`:** those tests share a
+fixture with other tests that need real timers (`await
+fixture.whenStable()`), so fake timers had to stay scoped narrowly.
+`ToastQueue`'s own spec has no such conflict — no `httpMock`, no
+`whenStable()` anywhere in the file — so installing fake timers globally
+for the whole suite is simpler and there's no unrelated test it could
+break.
