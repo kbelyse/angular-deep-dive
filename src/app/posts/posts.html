@@ -17,12 +17,14 @@
   <label class="search-field">
     <span>Search posts</span>
     <input
+      #searchInput
       type="search"
       [value]="query()"
       (input)="onQueryInput($event)"
       placeholder="Filter by title…"
     />
   </label>
+  <p class="search-hint">Press <kbd>/</kbd> to jump to search</p>
 
   <p class="visually-hidden" aria-live="polite">{{ resultsAnnouncement() }}</p>
 

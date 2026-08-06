@@ -1,4 +1,14 @@
-import { Component, computed, effect, inject, linkedSignal, NgZone, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  effect,
+  ElementRef,
+  inject,
+  linkedSignal,
+  NgZone,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed, toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { httpResource } from '@angular/common/http';
 import { NgOptimizedImage } from '@angular/common';
@@ -12,12 +22,17 @@ import { Post, parsePosts } from '../post';
 @Component({
   selector: 'app-posts',
   imports: [RowHighlight, RouterLink, ReadingTime, NgOptimizedImage],
+  host: {
+    '(document:keydown)': 'onGlobalKeydown($event)',
+  },
   templateUrl: './posts.html',
   styleUrl: './posts.scss',
 })
 export class Posts {
   private readonly apiBaseUrl = inject(API_BASE_URL);
   private readonly ngZone = inject(NgZone);
+
+  private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
 
   protected readonly postsResource = httpResource<Post[]>(
     () => `${this.apiBaseUrl}/posts?_limit=10`,
@@ -92,5 +107,17 @@ export class Posts {
 
   protected retry(): void {
     this.postsResource.reload();
+  }
+
+  protected onGlobalKeydown(event: KeyboardEvent): void {
+    if (event.key !== '/') {
+      return;
+    }
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      return;
+    }
+    event.preventDefault();
+    this.searchInput()?.nativeElement.focus();
   }
 }
