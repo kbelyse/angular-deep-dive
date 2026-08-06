@@ -14,14 +14,15 @@
     <button type="button" (click)="retry()">Retry</button>
   </p>
 } @else if (postResource.hasValue()) {
+  @let post = postResource.value();
   <article>
-    <h3>{{ postResource.value().title }}</h3>
-    <p class="reading-time">{{ postResource.value().body | readingTime }}</p>
+    <h3>{{ post.title }}</h3>
+    <p class="reading-time">{{ post.body | readingTime }}</p>
     <app-star-rating
       [value]="rating()"
       (valueChange)="onRatingChange($event)"
       label="Rate this post"
     />
-    <p class="body">{{ postResource.value().body }}</p>
+    <p class="body">{{ post.body }}</p>
   </article>
 }
