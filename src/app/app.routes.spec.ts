@@ -56,7 +56,14 @@ describe('app routes', () => {
   });
 
   it('should render PostDetail at /posts/:id', async () => {
-    const harness = await RouterTestingHarness.create('/posts/1');
+    const harnessPromise = RouterTestingHarness.create('/posts/1');
+    await vi.waitFor(() => {
+      httpMock
+        .expectOne('https://jsonplaceholder.typicode.com/posts/1')
+        .flush({ id: 1, title: 'A post', body: 'Body text.' });
+    });
+    const harness = await harnessPromise;
+
     httpMock
       .expectOne('https://jsonplaceholder.typicode.com/posts/1')
       .flush({ id: 1, title: 'A post', body: 'Body text.' });
