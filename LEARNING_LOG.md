@@ -2257,3 +2257,64 @@ own bootstrap sequence, not this app's code. `TestBed.flushEffects()`
 afterward is required for the same reason it was in `ThemePreference`'s
 own spec (08-04) — constructing the service schedules its effect, it
 doesn't run it.
+
+## 2026-08-06 — A document-scoped host listener: "/" to jump to search
+
+**Every `host` binding in this app until today has listened on the
+component's or directive's *own* host element:** `RowHighlight`'s
+`focusin`/`focusout`/`mouseenter`/`mouseleave` (07-28), `Tab`'s composed
+copy of the same thing (08-05). A "/" jumps to search" shortcut needs to
+listen everywhere on the page, not just while something inside `Posts`
+happens to have focus — a keyboard user should be able to press it right
+after the page loads, before ever touching the search field. Angular's
+`host` object supports this directly with a target prefix, not a
+different mechanism:
+
+```ts
+@Component({
+  ...
+  host: {
+    '(document:keydown)': 'onGlobalKeydown($event)',
+  },
+})
+export class Posts {
+  private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
+
+  protected onGlobalKeydown(event: KeyboardEvent): void {
+    if (event.key !== '/') return;
+    const target = event.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+    event.preventDefault();
+    this.searchInput()?.nativeElement.focus();
+  }
+}
+```
+
+**The `target.tagName` check isn't an edge case worth skipping — without
+it, a user typing a literal `/` character into the search box (searching
+for a post titled "before/after", say) would have every keystroke of
+`/` hijacked into re-focusing the field it's already in, instead of
+typing the character.** Checking the event's `target` (not `this`, not
+some internal focus-tracking signal) is the same "which element actually
+receives this" instinct as `RowHighlight`'s `focusin`/`focusout` choice
+back on 07-28 — global listeners see every keystroke on the page
+regardless of where it originated, so distinguishing "should this
+shortcut fire" has to happen inside the handler, not by relying on the
+binding's scope to filter it out.
+
+**Same `viewChild` + template reference variable shape `Tabs` uses for
+its own buttons (07-30), reused here for a single element instead of a
+list:** `#searchInput` on the `<input>`, `viewChild<ElementRef<...>>('searchInput')`
+in the class — nothing new, just the smallest instance of a pattern this
+app already leans on whenever a component needs to imperatively reach
+its own rendered DOM.
+
+**Testing a document-scoped listener works exactly like testing any
+other DOM event — dispatch on something that bubbles to `document`,
+assert on the result — no special host-binding test utility needed:**
+`document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '/',
+bubbles: true }))` reaches the listener the same way a real keypress
+would, and a second test dispatches the identical event with the input
+itself as the target to prove the guard clause actually distinguishes
+the two cases, rather than assuming the `tagName` check works from
+reading it once.
