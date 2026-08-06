@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { unsavedFeedbackGuard } from './feedback/unsaved-feedback.guard';
 import { postIdGuard } from './posts/post-detail/post-id.guard';
+import { postTitleResolver } from './posts/post-detail/post-title.resolver';
 
 export const routes: Routes = [
   {
@@ -30,6 +31,7 @@ export const routes: Routes = [
     path: 'posts/:id',
     title: 'Post · Angular Deep Dive',
     canActivate: [postIdGuard],
+    resolve: { resolvedTitle: postTitleResolver },
     loadComponent: () => import('./posts/post-detail/post-detail').then((m) => m.PostDetail),
   },
   {

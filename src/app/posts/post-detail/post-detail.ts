@@ -20,6 +20,7 @@ export class PostDetail {
   private readonly ratings = inject(Ratings);
 
   readonly id = input.required<string>();
+  readonly resolvedTitle = input('');
 
   protected readonly postResource = httpResource<Post>(
     () => `${this.apiBaseUrl}/posts/${this.id()}`,
@@ -34,6 +35,11 @@ export class PostDetail {
   });
 
   constructor() {
+    const resolvedTitle = this.resolvedTitle();
+    if (resolvedTitle) {
+      this.documentTitle.setTitle(`${resolvedTitle} · Angular Deep Dive`);
+    }
+
     effect(() => {
       if (this.postResource.hasValue()) {
         this.documentTitle.setTitle(`${this.postResource.value().title} · Angular Deep Dive`);
