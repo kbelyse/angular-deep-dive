@@ -9,6 +9,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
 import { Favorites } from '../favorites';
+import { ToastQueue } from '../toast-queue';
 import { Home } from './home';
 
 describe('Home', () => {
@@ -124,6 +125,18 @@ describe('Home', () => {
       expect(nativeEl().querySelector('.dialog')).toBeNull();
       expect(favorites.all()).toEqual([]);
       expect(nativeEl().querySelector('.empty')?.textContent).toContain('Nothing favorited yet');
+    });
+
+    it('should queue a confirmation toast once confirmed', () => {
+      (nativeEl().querySelector('.clear-favorites') as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const [, confirm] = nativeEl().querySelectorAll<HTMLButtonElement>('.dialog button');
+      confirm.click();
+
+      const toastQueue = TestBed.inject(ToastQueue);
+      expect(toastQueue.all()).toHaveLength(1);
+      expect(toastQueue.all()[0].message).toBe('Favorites cleared.');
     });
   });
 
