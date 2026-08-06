@@ -1,5 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { email, form, FormField, FormRoot, minLength, required } from '@angular/forms/signals';
+import { AutoFocus } from '../auto-focus/auto-focus';
 
 interface FeedbackFormValue {
   name: string;
@@ -11,7 +12,7 @@ const initialValue: FeedbackFormValue = { name: '', email: '', message: '' };
 
 @Component({
   selector: 'app-feedback',
-  imports: [FormField, FormRoot],
+  imports: [FormField, FormRoot, AutoFocus],
   templateUrl: './feedback.html',
   styleUrl: './feedback.scss',
 })

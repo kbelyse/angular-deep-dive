@@ -11,6 +11,7 @@
     <input
       id="name"
       type="text"
+      appAutoFocus
       [formField]="feedbackForm.name"
       [attr.aria-invalid]="
         feedbackForm.name().touched() && feedbackForm.name().invalid() ? true : null
