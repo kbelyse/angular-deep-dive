@@ -60,6 +60,20 @@ describe('Posts', () => {
     expect(nativeEl().querySelector('.status')?.textContent?.trim()).toBe('');
   });
 
+  it('should render a decorative, seeded thumbnail per post', async () => {
+    httpMock
+      .expectOne(POSTS_URL)
+      .flush([{ id: 7, title: 'Deep link', body: 'Goes to /posts/7.' }]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const img = nativeEl().querySelector('.posts-list li img') as HTMLImageElement;
+    expect(img.src).toContain('picsum.photos/seed/7/80/80');
+    expect(img.width).toBe(80);
+    expect(img.height).toBe(80);
+    expect(img.alt).toBe('');
+  });
+
   it('should link each post to its detail page', async () => {
     httpMock.expectOne(POSTS_URL).flush([{ id: 7, title: 'Deep link', body: 'Goes to /posts/7.' }]);
     await fixture.whenStable();
