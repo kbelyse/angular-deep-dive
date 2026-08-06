@@ -2202,3 +2202,58 @@ fixture.whenStable()`), so fake timers had to stay scoped narrowly.
 `whenStable()` anywhere in the file — so installing fake timers globally
 for the whole suite is simpler and there's no unrelated test it could
 break.
+
+## 2026-08-06 — `provideAppInitializer`: making a lazy singleton eager, on purpose
+
+**`ThemePreference` has been `providedIn: 'root'` since 07-31 — lazy by
+default, like every other root service here. It only actually gets
+constructed the first time something calls `inject(ThemePreference)`,
+which today means `App`'s own field initializer, the first thing that
+runs when the root component is created.** That's normally exactly
+right — but it also means the very first paint of the page happens
+*before* `ThemePreference`'s constructor effect has necessarily had a
+chance to write `data-theme` onto `<html>`, since effects don't flush
+synchronously at construction (a rule this log has now hit three
+different ways: `GlobalErrorHandler`, `postTitleResolver`, and today).
+`provideAppInitializer` is the tool for forcing something to happen
+*before* Angular finishes bootstrapping at all, closing that gap
+structurally instead of hoping timing works out:
+
+```ts
+export function warmUpThemePreference(): void {
+  inject(ThemePreference);
+}
+```
+
+```ts
+providers: [
+  ...
+  provideAppInitializer(warmUpThemePreference),
+],
+```
+
+**The function body doesn't *do* anything with the injected value — and
+that's the entire point, not an oversight.** Calling `inject(ThemePreference)`
+is enough to construct the singleton (running its constructor, which
+schedules the theme-writing effect) before `ApplicationRef` finishes
+initializing and hands control to the component tree. Nothing about
+`ThemePreference` itself changed; this is purely about *when* its
+one-time construction cost happens, moved earlier on purpose.
+
+**`provideAppInitializer`, not the older `APP_INITIALIZER` multi-token
++ factory pattern:** the deprecated form needs a `{ provide:
+APP_INITIALIZER, useFactory: ..., multi: true, deps: [...] }` provider
+object and a separately-declared factory function reaching for its
+dependencies via `deps`. `provideAppInitializer(fn)` runs `fn` directly
+inside an injection context, so `inject()` works the same plain way it
+does in a constructor or another provider factory — one function, no
+DI boilerplate wrapping it.
+
+**Tested the function directly via `TestBed.runInInjectionContext`,
+the same pattern already used for `postTitleResolver`, not by
+bootstrapping a real app:** standing up `bootstrapApplication` in a test
+just to prove one function calls `inject()` would be testing Angular's
+own bootstrap sequence, not this app's code. `TestBed.flushEffects()`
+afterward is required for the same reason it was in `ThemePreference`'s
+own spec (08-04) — constructing the service schedules its effect, it
+doesn't run it.
