@@ -2111,3 +2111,42 @@ consumed and compiled away into an actual `src` attribute by the
 directive — asserting on `img.src` (post-directive output) is what
 proves the directive did its job, the same reasoning as testing
 `RowHighlight`'s resulting `class`, not its internal signals.
+
+## 2026-08-06 — `@let`: naming a value once inside a template block
+
+**`PostDetail`'s template called `postResource.value()` three separate
+times inside the same `@else if` block** — not a bug (each call is
+cheap, `.value()` just reads a signal), but the kind of repetition that
+makes a template harder to skim and creates three places a future edit
+could drift out of sync if the expression ever needed to change.
+`@let`, template syntax, aliases a value once for the rest of the block
+it's declared in:
+
+```html
+} @else if (postResource.hasValue()) {
+  @let post = postResource.value();
+  <article>
+    <h3>{{ post.title }}</h3>
+    <p class="reading-time">{{ post.body | readingTime }}</p>
+    ...
+    <p class="body">{{ post.body }}</p>
+  </article>
+}
+```
+
+**Scoped to the block, the same rule as a `@for`/`@if` template
+variable, not hoisted to the whole template:** `post` only exists from
+its `@let` line to the end of that `@else if` block — declaring it
+outside the `hasValue()` check wouldn't type-check anyway, since
+`postResource.value()` is only narrowed to plain `Post` (not `Post |
+undefined`) *inside* the branch where `hasValue()` already returned
+true, same narrowing rule noted back on 07-29.
+
+**No new test needed, and that itself is worth recording as a check,
+not an assumption:** confirmed by running the existing `PostDetail`
+suite unchanged and watching all twelve tests still pass — `@let` is
+purely how the template *reads*, not what it *does*; every assertion
+that already covered the rendered title/body/reading-time continues to
+exercise the exact same rendered output. A refactor that changes test
+results would mean the refactor introduced a behavior change, which is
+exactly what re-running the suite is there to catch.
