@@ -1,6 +1,7 @@
 import {
   ApplicationConfig,
   ErrorHandler,
+  provideAppInitializer,
   provideBrowserGlobalErrorListeners,
   provideZoneChangeDetection,
 } from '@angular/core';
@@ -11,6 +12,7 @@ import { routes } from './app.routes';
 import { GlobalErrorHandler } from './global-error-handler';
 import { loadingInterceptor } from './loading-interceptor';
 import { SelectivePreloadingStrategy } from './selective-preloading-strategy';
+import { warmUpThemePreference } from './warm-up-theme-preference';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -19,5 +21,6 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes, withComponentInputBinding(), withPreloading(SelectivePreloadingStrategy)),
     provideHttpClient(withInterceptors([loadingInterceptor])),
     { provide: ErrorHandler, useClass: GlobalErrorHandler },
+    provideAppInitializer(warmUpThemePreference),
   ],
 };
