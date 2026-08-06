@@ -49,6 +49,11 @@ describe('Feedback', () => {
     expect(nativeEl().querySelector('h2')?.textContent).toContain('Feedback');
   });
 
+  it('should focus the name field on load', () => {
+    const nameInput = nativeEl().querySelector('#name');
+    expect(document.activeElement).toBe(nameInput);
+  });
+
   it('should disable the submit button until every field is valid', () => {
     const button = nativeEl().querySelector('button[type="submit"]') as HTMLButtonElement;
     expect(button.disabled).toBe(true);
