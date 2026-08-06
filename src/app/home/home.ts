@@ -4,6 +4,7 @@ import { ConfirmDialog } from '../confirm-dialog/confirm-dialog';
 import { Favorites } from '../favorites';
 import { Tab } from '../tabs/tab';
 import { Tabs } from '../tabs/tabs';
+import { ToastQueue } from '../toast-queue';
 import { RecentPosts } from './recent-posts/recent-posts';
 
 @Component({
@@ -14,6 +15,7 @@ import { RecentPosts } from './recent-posts/recent-posts';
 })
 export class Home {
   protected readonly favorites = inject(Favorites);
+  private readonly toastQueue = inject(ToastQueue);
 
   protected readonly confirmingClear = signal(false);
 
@@ -24,6 +26,7 @@ export class Home {
   protected confirmClear(): void {
     this.favorites.clear();
     this.confirmingClear.set(false);
+    this.toastQueue.show('Favorites cleared.');
   }
 
   protected cancelClear(): void {
